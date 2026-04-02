@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image GeoTag & Metadata Tool</title>
+  <meta name="description" content="Công cụ geotag và ghi metadata hình ảnh hàng loạt - chạy 100% trên trình duyệt">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ==================== HEADER ==================== -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="logo">🏷️</div>
+      <h1>Image GeoTag & Metadata</h1>
+      <span class="badge">v1.0</span>
+    </div>
+    <div class="header-stats">
+      <div class="stat-item">
+        📷 <span class="count" id="statTotal">0</span> ảnh
+      </div>
+      <div class="stat-item">
+        📍 <span class="count" id="statGeotagged">0</span> đã geotag
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== GLOBAL SETTINGS ==================== -->
+  <div class="settings-bar">
+    <div class="setting-group">
+      <label>✍️ Author:</label>
+      <input type="text" id="globalAuthor" placeholder="Tên tác giả">
+    </div>
+    <div class="setting-group">
+      <label>©️ Copyright:</label>
+      <input type="text" id="globalCopyright" placeholder="© 2025 Tên - URL">
+    </div>
+    <div class="divider"></div>
+    <div class="setting-group api-toggle">
+      <label>🤖 AI Mode:</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="aiModeToggle">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="setting-group" id="apiKeyGroup" style="display: none;">
+      <label>🔑 API Key:</label>
+      <input type="password" id="globalApiKey" placeholder="Google Gemini API Key">
+    </div>
+    <div class="divider"></div>
+    <button class="btn-apply-global" id="btnApplyGlobal" title="Áp dụng Author & Copyright cho tất cả ảnh">
+      Áp dụng tất cả
+    </button>
+  </div>
+
+  <!-- ==================== UPLOAD ZONE ==================== -->
+  <div class="upload-zone">
+    <div class="drop-zone" id="dropZone">
+      <span class="icon">📁</span>
+      <h3>Kéo thả ảnh vào đây hoặc click để chọn</h3>
+      <p>Hỗ trợ JPEG, PNG, WebP — không giới hạn số lượng</p>
+      <p class="file-types">Ảnh sẽ được xử lý 100% trên trình duyệt, không upload lên server</p>
+      <input type="file" id="fileInput" multiple accept="image/jpeg,image/png,image/webp,image/jpg">
+    </div>
+  </div>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <main class="main-content" id="mainContent">
+
+    <!-- Left Panel: Image Grid + Metadata Form -->
+    <div class="left-panel">
+      <div class="panel-header">
+        <h2>🖼️ Danh sách ảnh</h2>
+        <div class="panel-actions">
+          <button class="btn-icon" id="btnSelectAll" title="Chọn tất cả">☑️ Chọn hết</button>
+          <button class="btn-icon" id="btnRemoveSelected" title="Xóa ảnh đã chọn">🗑️ Xóa chọn</button>
+        </div>
+      </div>
+
+      <!-- Image Grid -->
+      <div class="image-grid" id="imageGrid">
+        <div class="image-grid-empty">
+          <span class="icon">🖼️</span>
+          <p>Chưa có ảnh nào. Hãy upload ảnh ở trên.</p>
+        </div>
+      </div>
+
+      <!-- Metadata Form -->
+      <div class="metadata-form" id="metadataForm">
+        <div class="form-header">
+          <h3>📋 Thông tin ảnh</h3>
+          <span class="selected-file" id="selectedFileName">Chưa chọn ảnh</span>
+        </div>
+
+        <div class="form-disabled" id="formFields">
+          <div class="form-group">
+            <label>Title (Tiêu đề)</label>
+            <input type="text" id="metaTitle" placeholder="Tự động từ tên file">
+            <div class="hint">Lấy từ tên file, có thể chỉnh sửa</div>
+          </div>
+          <div class="form-group">
+            <label>Subject (Chủ đề)</label>
+            <input type="text" id="metaSubject" placeholder="Tự động từ tên file">
+          </div>
+          <div class="form-group">
+            <label>Tags (Từ khóa)</label>
+            <input type="text" id="metaTags" placeholder="tag1; tag2; tag3">
+            <div class="hint">Phân cách bằng dấu chấm phẩy (;)</div>
+          </div>
+          <div class="form-group">
+            <label>Comment (Ghi chú)</label>
+            <textarea id="metaComment" placeholder="Mô tả ảnh"></textarea>
+          </div>
+          <div class="form-group">
+            <label>📍 GPS</label>
+            <input type="text" id="metaGps" readonly placeholder="Chọn vị trí trên bản đồ →"
+              style="cursor: pointer; color: var(--accent-primary);">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel: Map + GPS Controls -->
+    <div class="right-panel">
+      <div class="panel-header">
+        <h2>🗺️ Bản đồ Geotag</h2>
+      </div>
+
+      <!-- Leaflet Map -->
+      <div id="map"></div>
+
+      <!-- GPS Controls -->
+      <div class="gps-controls">
+        <h3>📍 Tọa độ GPS</h3>
+
+        <div class="gps-coords-row">
+          <input type="number" id="gpsLat" placeholder="Latitude (VD: 21.0285)" step="any">
+          <input type="number" id="gpsLng" placeholder="Longitude (VD: 105.8542)" step="any">
+        </div>
+
+        <div class="search-box">
+          <input type="text" id="addressSearch" placeholder="🔍 Tìm địa chỉ (VD: Hà Nội, Sài Gòn...)">
+          <button id="btnSearchAddress">Tìm</button>
+        </div>
+
+        <div class="search-results" id="searchResults"></div>
+
+        <div class="gps-apply-mode">
+          <label><input type="radio" name="gpsApply" value="single"> Ảnh đang chọn</label>
+          <label><input type="radio" name="gpsApply" value="empty"> Tất cả chưa có GPS</label>
+          <label><input type="radio" name="gpsApply" value="all" checked> Ghi đè tất cả</label>
+        </div>
+
+        <button class="btn-apply-gps" id="btnApplyGps" disabled>📍 Áp dụng GPS</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==================== ACTION BAR ==================== -->
+  <footer class="action-bar">
+    <button class="btn-action accent" id="btnAiTags" disabled title="Sử dụng Google Vision API để tạo tags thông minh">
+      🤖 AI Tags
+    </button>
+    <button class="btn-action primary" id="btnWriteMeta" disabled title="Ghi metadata vào tất cả ảnh">
+      ✍️ Ghi Metadata
+    </button>
+    <button class="btn-action success" id="btnDownloadZip" disabled title="Tải tất cả ảnh đã xử lý dưới dạng ZIP">
+      📥 Tải ZIP
+    </button>
+    <button class="btn-action danger" id="btnClearAll" disabled title="Xóa tất cả ảnh">
+      🗑️ Xóa tất cả
+    </button>
+
+    <div class="progress-container hidden" id="progressContainer">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <span class="progress-text" id="progressText"></span>
+    </div>
+  </footer>
+
+  <!-- ==================== TOAST CONTAINER ==================== -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ==================== SCRIPTS ==================== -->
+  <!-- Libraries (CDN) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+  <!-- App Modules -->
+  <script src="js/filename-parser.js"></script>
+  <script src="js/smart-tags.js"></script>
+  <script src="js/metadata.js"></script>
+  <script src="js/geotag.js"></script>
+  <script src="js/download.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
