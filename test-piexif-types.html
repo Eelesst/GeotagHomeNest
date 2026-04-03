@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head><title>Piexif Test</title></head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js"></script>
+<script>
+console.log("STARTING TEST");
+try {
+  const exifObj = { '0th': {}, 'Exif': {}, 'GPS': {}, '1st': {}, 'Interop': {} };
+  
+  // Test passing array of numbers
+  exifObj['0th'][40091] = [84, 0, 101, 0, 115, 0, 116, 0, 0, 0];
+  const d1 = piexif.dump(exifObj);
+  console.log("Dump with array:", d1.substring(0, 50));
+} catch(e) {
+  console.error("Error dumping array:", e.message);
+}
+
+try {
+  const exifObj2 = { '0th': {}, 'Exif': {}, 'GPS': {}, '1st': {}, 'Interop': {} };
+  
+  // Test passing string with charCodes
+  exifObj2['0th'][40091] = String.fromCharCode(84, 0, 101, 0, 115, 0, 116, 0, 0, 0);
+  const d2 = piexif.dump(exifObj2);
+  console.log("Dump with string length:", d2.length);
+} catch(e) {
+  console.error("Error dumping string:", e.message);
+}
+</script>
+</body>
+</html>
