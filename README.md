@@ -13,7 +13,7 @@ Công cụ gắn GPS, metadata và sinh SEO tags cho hình ảnh — chạy 100%
 
 ## 🚀 Sử dụng
 
-1. Mở tool tại: [Link GitHub Pages]
+1. Mở tool tại: https://geotag-home-nest.vercel.app
 2. Kéo thả ảnh vào tool
 3. Chọn vị trí GPS trên bản đồ → Áp dụng GPS
 4. Bấm 🤖 AI Tags để sinh tags + description
