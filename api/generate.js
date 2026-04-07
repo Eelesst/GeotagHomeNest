@@ -24,12 +24,13 @@ export default async function handler(req, res) {
   // Danh sách Models ưu tiên
   const tryQueue = [];
   if (geminiKey) {
-    tryQueue.push({ provider: 'gemini', model: 'gemini-2.0-flash', key: geminiKey });
-    tryQueue.push({ provider: 'gemini', model: 'gemini-2.0-flash-lite', key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-2.5-flash-preview-04-17', key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash', key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash-8b', key: geminiKey });
   }
   if (openrouterKey) {
-    tryQueue.push({ provider: 'openrouter', model: 'openrouter/free', key: openrouterKey });
-    tryQueue.push({ provider: 'openrouter', model: 'google/gemini-2.0-pro-exp-0205:free', key: openrouterKey });
+    tryQueue.push({ provider: 'openrouter', model: 'openrouter/auto', key: openrouterKey });
+    tryQueue.push({ provider: 'openrouter', model: 'google/gemini-2.0-flash-exp:free', key: openrouterKey });
   }
   const maxAttempts = 3;
   let lastError = null;
