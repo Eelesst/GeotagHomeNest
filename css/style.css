@@ -250,6 +250,10 @@ body {
   background: white;
 }
 
+.toggle-switch input:checked + .danger-slider {
+  background: var(--accent-danger);
+}
+
 .btn-apply-global {
   background: var(--gradient-primary);
   border: none;
