@@ -516,6 +516,7 @@ const App = {
       document.getElementById('visionToggleGroup').style.display = show;
       document.getElementById('forceCacheGroup').style.display = show;
       document.getElementById('projectContextBar').style.display = e.target.checked ? 'block' : 'none';
+      try { localStorage.setItem('geotag_ai_mode', e.target.checked ? '1' : '0'); } catch(ex) {}
     });
     
     // Force cache toggle
@@ -549,8 +550,16 @@ const App = {
 
     // Restore AI toggle settings from localStorage
     try {
+      const savedAiMode = localStorage.getItem('geotag_ai_mode');
       const savedVision = localStorage.getItem('geotag_vision_mode');
       const savedForce = localStorage.getItem('geotag_force_cache');
+      if (savedAiMode === '1') {
+        document.getElementById('aiModeToggle').checked = true;
+        this.state.globalSettings.aiMode = true;
+        document.getElementById('visionToggleGroup').style.display = 'flex';
+        document.getElementById('forceCacheGroup').style.display = 'flex';
+        document.getElementById('projectContextBar').style.display = 'block';
+      }
       if (savedVision === '1') {
         document.getElementById('visionModeToggle').checked = true;
         this.state.projectContext.visionMode = true;
@@ -713,6 +722,8 @@ const App = {
       } catch (err) {
         console.warn('[AI] Serverless failed, falling back to offline:', err.message);
         this.showProgress(60, 'AI thất bại, dùng offline...');
+        // Show the REAL error to the user so they know what's wrong
+        this.showToast(`⚠️ AI lỗi: ${err.message} — Đang dùng Offline`, 'warning', 6000);
       }
     }
 
@@ -1036,8 +1047,9 @@ const App = {
    * Show a toast notification
    * @param {string} message
    * @param {string} type - 'success' | 'error' | 'warning' | 'info'
+   * @param {number} duration - ms to show (default 3500)
    */
-  showToast(message, type = 'info') {
+  showToast(message, type = 'info', duration = 3500) {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
@@ -1056,7 +1068,7 @@ const App = {
     setTimeout(() => {
       toast.classList.add('removing');
       setTimeout(() => toast.remove(), 250);
-    }, 3500);
+    }, duration);
   }
 };
 
