@@ -20,23 +20,19 @@ export default async function handler(req, res) {
     });
   }
 
-  // Queue covers cả dòng model cũ lẫn mới — tự động fallback
+  // Models đã xác nhận hoạt động qua /api/debug → ListModels
   const tryQueue = [];
   if (geminiKey) {
-    // Dòng 2.0 (mới nhất cho tài khoản mới)
-    tryQueue.push({ provider: 'gemini', model: 'gemini-2.0-flash-lite',          apiVersion: 'v1',     key: geminiKey });
-    tryQueue.push({ provider: 'gemini', model: 'gemini-2.0-flash-lite-001',       apiVersion: 'v1',     key: geminiKey });
-    tryQueue.push({ provider: 'gemini', model: 'gemini-2.5-flash-preview-04-17',  apiVersion: 'v1beta', key: geminiKey });
-    // Dòng 1.5 (tài khoản cũ)
-    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash',               apiVersion: 'v1',     key: geminiKey });
-    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash-8b',            apiVersion: 'v1',     key: geminiKey });
-    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-pro',                 apiVersion: 'v1',     key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-2.5-flash',       apiVersion: 'v1beta', key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-2.5-flash-lite',  apiVersion: 'v1beta', key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-2.0-flash-lite',  apiVersion: 'v1',     key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-2.0-flash',       apiVersion: 'v1',     key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-2.0-flash-001',   apiVersion: 'v1',     key: geminiKey });
   }
   if (openrouterKey) {
-    tryQueue.push({ provider: 'openrouter', model: 'deepseek/deepseek-chat-v3-0324:free',       key: openrouterKey });
-    tryQueue.push({ provider: 'openrouter', model: 'google/gemini-2.0-flash-thinking-exp:free', key: openrouterKey });
-    tryQueue.push({ provider: 'openrouter', model: 'qwen/qwen3-14b:free',                       key: openrouterKey });
-    tryQueue.push({ provider: 'openrouter', model: 'meta-llama/llama-3.3-70b-instruct:free',    key: openrouterKey });
+    tryQueue.push({ provider: 'openrouter', model: 'deepseek/deepseek-chat-v3-0324:free',        key: openrouterKey });
+    tryQueue.push({ provider: 'openrouter', model: 'meta-llama/llama-3.3-70b-instruct:free',     key: openrouterKey });
+    tryQueue.push({ provider: 'openrouter', model: 'microsoft/phi-4-reasoning-plus:free',        key: openrouterKey });
   }
 
   let lastError = null;
