@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Image GeoTag & Metadata Tool</title>
-  <meta name="description" content="Công cụ geotag và ghi metadata hình ảnh hàng loạt - chạy 100% trên trình duyệt">
+  <title>HomeNest Geotag</title>
+  <meta name="description" content="HomeNest Geotag - Công cụ geotag và ghi metadata hình ảnh hàng loạt">
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -18,9 +18,9 @@
   <!-- ==================== HEADER ==================== -->
   <header class="header">
     <div class="header-brand">
-      <div class="logo">🏷️</div>
-      <h1>Image GeoTag & Metadata</h1>
-      <span class="badge">v1.0</span>
+      <div class="logo"><img src="img/logo.png" alt="HomeNest" style="width:100%;height:100%;object-fit:contain;"></div>
+      <h1>HomeNest Geotag</h1>
+      <span class="badge">v1.1</span>
     </div>
     <div class="header-stats">
       <div class="stat-item">
@@ -42,6 +42,17 @@
       <label>©️ Copyright:</label>
       <input type="text" id="globalCopyright" placeholder="© 2025 Tên - URL">
     </div>
+    <div class="setting-group">
+      <label>🌐 Website:</label>
+      <input type="text" id="globalWebsiteUrl" placeholder="https://example.com" style="width: 220px;">
+    </div>
+    <div class="setting-group">
+      <label>⭐ Auto 5★:</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="autoRatingToggle" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
     <div class="divider"></div>
     <div class="setting-group api-toggle">
       <label>🤖 AI Mode:</label>
@@ -50,14 +61,72 @@
         <span class="toggle-slider"></span>
       </label>
     </div>
-    <div class="setting-group" id="apiKeyGroup" style="display: none;">
-      <label>🔑 API Key:</label>
-      <input type="password" id="globalApiKey" placeholder="Google Gemini API Key">
+    <div class="setting-group" id="aiProviderGroup" style="display: none;">
+      <label>🔌 Provider:</label>
+      <select id="aiProvider" class="setting-select">
+        <option value="gemini">Gemini (Google)</option>
+        <option value="openrouter">OpenRouter</option>
+        <option value="auto">Auto (Fallback)</option>
+      </select>
+    </div>
+    <div class="setting-group" id="geminiKeyGroup" style="display: none;">
+      <label>🔑 Gemini:</label>
+      <input type="password" id="globalApiKey" placeholder="Google AI Studio Key">
+    </div>
+    <div class="setting-group" id="openrouterKeyGroup" style="display: none;">
+      <label>🔑 Router:</label>
+      <input type="password" id="openrouterApiKey" placeholder="OpenRouter Key">
+    </div>
+    <div class="setting-group" id="visionToggleGroup" style="display: none;">
+      <label>👁️ Vision:</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="visionModeToggle">
+        <span class="toggle-slider"></span>
+      </label>
     </div>
     <div class="divider"></div>
     <button class="btn-apply-global" id="btnApplyGlobal" title="Áp dụng Author & Copyright cho tất cả ảnh">
       Áp dụng tất cả
     </button>
+  </div>
+
+  <!-- ==================== PROJECT CONTEXT (AI) ==================== -->
+  <div class="project-context-bar" id="projectContextBar" style="display: none;">
+    <div class="context-row">
+      <div class="setting-group">
+        <label>🏭 Ngành:</label>
+        <input type="text" id="ctxIndustry" placeholder="VD: Phủ ceramic ô tô, Bán thảm..." style="width: 200px;">
+      </div>
+      <div class="setting-group">
+        <label>🏢 Brand:</label>
+        <input type="text" id="ctxBrand" placeholder="VD: AutoLink Vietnam" style="width: 170px;">
+      </div>
+      <div class="setting-group">
+        <label>🔑 Keywords:</label>
+        <input type="text" id="ctxKeywords" placeholder="phủ ceramic, PPF, bảo vệ sơn" style="width: 220px;">
+      </div>
+      <div class="setting-group">
+        <label>🌐 Ngôn ngữ:</label>
+        <select id="ctxLanguage" class="setting-select">
+          <option value="vi">Tiếng Việt</option>
+          <option value="en">English</option>
+          <option value="both">Cả hai</option>
+        </select>
+      </div>
+    </div>
+    <div class="context-row">
+      <div class="setting-group" style="flex: 1;">
+        <label>📝 Mô tả dự án:</label>
+        <input type="text" id="ctxDescription" placeholder="VD: Dịch vụ phủ Nano Ceramic ô tô cao cấp tại quận 4, TP.HCM" style="width: 100%;">
+      </div>
+      <div class="context-actions">
+        <button class="btn-ctx" id="btnSaveProject" title="Lưu project context">💾 Lưu</button>
+        <select id="savedProjects" class="setting-select">
+          <option value="">📂 Chọn project...</option>
+        </select>
+        <button class="btn-ctx btn-ctx-danger" id="btnDeleteProject" title="Xóa project đã chọn">🗑️</button>
+      </div>
+    </div>
   </div>
 
   <!-- ==================== UPLOAD ZONE ==================== -->
@@ -197,12 +266,13 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 
-  <!-- App Modules -->
-  <script src="js/filename-parser.js"></script>
-  <script src="js/smart-tags.js"></script>
-  <script src="js/metadata.js"></script>
-  <script src="js/geotag.js"></script>
-  <script src="js/download.js"></script>
-  <script src="js/app.js"></script>
+  <!-- App Modules (v3 = cache bust) -->
+  <script src="js/filename-parser.js?v=3"></script>
+  <script src="js/smart-tags.js?v=3"></script>
+  <script src="js/metadata.js?v=3"></script>
+  <script src="js/ai-provider.js?v=3"></script>
+  <script src="js/geotag.js?v=3"></script>
+  <script src="js/download.js?v=3"></script>
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>

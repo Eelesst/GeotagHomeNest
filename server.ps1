@@ -39,6 +39,8 @@ while ($listener.IsListening) {
         
         $response.ContentType = $contentType
         $response.StatusCode = 200
+        $response.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate")
+        $response.Headers.Add("Pragma", "no-cache")
         
         $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
         $response.ContentLength64 = $fileBytes.Length

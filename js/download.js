@@ -120,14 +120,9 @@ const Downloader = {
 
     for (const img of images) {
       try {
-        // Ensure we have JPEG data
-        let dataURL = img.dataURL;
-        if (!MetadataManager.isJPEG(dataURL)) {
-          dataURL = await MetadataManager.convertToJPEG(dataURL);
-        }
-
-        // Write metadata into EXIF
-        const processedDataURL = MetadataManager.writeExif(dataURL, img.metadata);
+        // Write EXIF metadata onto the original image (preserving existing metadata)
+        // writeExif loads existing EXIF first, then only adds/updates our fields
+        const processedDataURL = MetadataManager.writeExif(img.dataURL, img.metadata);
 
         // Extract base64 data (remove prefix)
         const base64Data = processedDataURL.split(',')[1];
@@ -202,12 +197,8 @@ const Downloader = {
   async downloadSingle(img, onProgress) {
     onProgress(10, 'Đang xử lý ảnh...');
 
-    let dataURL = img.dataURL;
-    if (!MetadataManager.isJPEG(dataURL)) {
-      dataURL = await MetadataManager.convertToJPEG(dataURL);
-    }
-
-    const processedDataURL = MetadataManager.writeExif(dataURL, img.metadata);
+    // Write EXIF metadata onto the original image (preserving existing metadata)
+    const processedDataURL = MetadataManager.writeExif(img.dataURL, img.metadata);
 
     onProgress(80, 'Đang tải xuống...');
 

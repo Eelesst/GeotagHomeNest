@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>EXIF Write Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js"></script>
+  <script src="js/metadata.js"></script>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #111; color: #0f0; }
+    .pass { color: #0f0; }
+    .fail { color: #f00; }
+    .info { color: #ff0; }
+    pre { white-space: pre-wrap; }
+    input[type=file] { margin: 10px 0; }
+    h2 { color: #0ff; }
+  </style>
+</head>
+<body>
+  <h1>🧪 EXIF Write/Read Test</h1>
+  
+  <h2>Test 1: Clean Canvas JPEG</h2>
+  <pre id="test1">Running...</pre>
+
+  <h2>Test 2: Upload a Canva image to test</h2>
+  <input type="file" id="fileInput" accept="image/*">
+  <pre id="test2">Waiting for file...</pre>
+
+  <h2>Test 3: Download test image</h2>
+  <button id="downloadBtn" disabled>Download Test Image</button>
+  <pre id="test3">Run Test 2 first</pre>
+
+  <script>
+    let lastProcessedDataURL = null;
+
+    function log(elementId, msg, type = 'info') {
+      const el = document.getElementById(elementId);
+      const cls = type === 'pass' ? 'pass' : type === 'fail' ? 'fail' : 'info';
+      el.innerHTML += `<span class="${cls}">${msg}</span>\n`;
+    }
+
+    function clearLog(elementId) {
+      document.getElementById(elementId).innerHTML = '';
+    }
+
+    // ===== TEST 1: Clean Canvas JPEG =====
+    function runTest1() {
+      clearLog('test1');
+      log('test1', '--- Creating test JPEG from Canvas ---');
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 200;
+      canvas.height = 100;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#FF6600';
+      ctx.fillRect(0, 0, 200, 100);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '14px monospace';
+      ctx.fillText('EXIF Test', 60, 55);
+      const cleanJPEG = canvas.toDataURL('image/jpeg', 0.9);
+      log('test1', `Canvas JPEG created: ${cleanJPEG.length} chars`);
+
+      const testMeta = {
+        title: 'Dịch vụ phủ Nano Ceramic ô tô uy tín',
+        subject: 'Nano Ceramic ô tô',
+        tags: 'nano ceramic; ô tô; phủ ceramic; dịch vụ ô tô',
+        comment: 'Dịch vụ phủ Nano Ceramic ô tô uy tín gần phường Xóm Chiếu',
+        author: 'AutoLink Vietnam',
+        copyright: '© 2026 AutoLink Vietnam',
+        rating: 5,
+        gps: { lat: 10.762622, lng: 106.660172 }
+      };
+
+      log('test1', '--- Writing EXIF ---');
+      try {
+        const result = MetadataManager.writeExif(cleanJPEG, testMeta);
+        log('test1', `writeExif result: ${result.length} chars`, 'pass');
+
+        // Read back
+        log('test1', '--- Reading back EXIF ---');
+        const readBack = MetadataManager.readExif(result);
+        
+        const checks = [
+          ['title', testMeta.title, readBack.title],
+          ['subject', testMeta.subject, readBack.subject],
+          ['tags', testMeta.tags, readBack.tags],
+          ['comment', testMeta.comment, readBack.comment],
+          ['author', testMeta.author, readBack.author],
+          ['copyright', testMeta.copyright, readBack.copyright],
+          ['rating', testMeta.rating, readBack.rating],
+          ['gps.lat', testMeta.gps.lat.toFixed(4), readBack.gps ? readBack.gps.lat.toFixed(4) : 'null'],
+          ['gps.lng', testMeta.gps.lng.toFixed(4), readBack.gps ? readBack.gps.lng.toFixed(4) : 'null'],
+        ];
+
+        let allPassed = true;
+        for (const [field, expected, actual] of checks) {
+          const pass = String(expected) === String(actual);
+          if (!pass) allPassed = false;
+          log('test1', `  ${pass ? '✅' : '❌'} ${field}: "${actual}" ${pass ? '==' : '!='} "${expected}"`, pass ? 'pass' : 'fail');
+        }
+
+        log('test1', allPassed ? '\n✅ TEST 1 PASSED!' : '\n❌ TEST 1 FAILED!', allPassed ? 'pass' : 'fail');
+      } catch (e) {
+        log('test1', `❌ EXCEPTION: ${e.message}\n${e.stack}`, 'fail');
+      }
+    }
+
+    // ===== TEST 2: Real image file =====
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      clearLog('test2');
+      log('test2', `--- Processing: ${file.name} (${(file.size/1024).toFixed(1)} KB) ---`);
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        let dataURL = reader.result;
+        log('test2', `Loaded dataURL: ${dataURL.length} chars, type: ${dataURL.substring(0, 30)}...`);
+
+        // Convert to JPEG if needed
+        if (!MetadataManager.isJPEG(dataURL)) {
+          log('test2', 'Not JPEG, would need conversion (skipping for test)', 'info');
+        }
+
+        // Read existing EXIF
+        log('test2', '--- Reading existing EXIF ---');
+        const existing = MetadataManager.readExif(dataURL);
+        log('test2', `  title: "${existing.title}"`);
+        log('test2', `  subject: "${existing.subject}"`);
+        log('test2', `  tags: "${existing.tags}"`);
+        log('test2', `  comment: "${existing.comment}"`);
+        log('test2', `  author: "${existing.author}"`);
+        log('test2', `  copyright: "${existing.copyright}"`);
+        log('test2', `  rating: ${existing.rating}`);
+        log('test2', `  gps: ${existing.gps ? JSON.stringify(existing.gps) : 'null'}`);
+
+        // Write our metadata
+        const testMeta = {
+          title: 'Dịch vụ phủ Nano Ceramic ô tô uy tín gần phường Xóm Chiếu',
+          subject: 'Nano Ceramic ô tô quận 4',
+          tags: 'nano ceramic; phủ ceramic; ô tô; dịch vụ ô tô; xóm chiếu; quận 4',
+          comment: 'Dịch vụ phủ Nano Ceramic ô tô uy tín gần phường Xóm Chiếu - chất lượng cao, bảo vệ sơn xe',
+          author: 'AutoLink Vietnam',
+          copyright: '© 2026 AutoLink Vietnam - autolinkvietnam.com.vn',
+          rating: 5,
+          gps: { lat: 10.762622, lng: 106.660172 }
+        };
+
+        log('test2', '\n--- Writing EXIF ---');
+        try {
+          const result = MetadataManager.writeExif(dataURL, testMeta);
+          log('test2', `writeExif result: ${result.length} chars`, 'pass');
+
+          // Read back
+          log('test2', '\n--- Reading back EXIF ---');
+          const readBack = MetadataManager.readExif(result);
+          
+          const checks = [
+            ['title', testMeta.title, readBack.title],
+            ['subject', testMeta.subject, readBack.subject],
+            ['tags', testMeta.tags, readBack.tags],
+            ['comment', testMeta.comment, readBack.comment],
+            ['author', testMeta.author, readBack.author],
+            ['copyright', testMeta.copyright, readBack.copyright],
+            ['rating', testMeta.rating, readBack.rating],
+          ];
+
+          let allPassed = true;
+          for (const [field, expected, actual] of checks) {
+            const pass = String(expected) === String(actual);
+            if (!pass) allPassed = false;
+            log('test2', `  ${pass ? '✅' : '❌'} ${field}: "${actual}"`, pass ? 'pass' : 'fail');
+          }
+
+          log('test2', allPassed ? '\n✅ TEST 2 PASSED!' : '\n❌ TEST 2 FAILED!', allPassed ? 'pass' : 'fail');
+
+          // Save for download test
+          lastProcessedDataURL = result;
+          document.getElementById('downloadBtn').disabled = false;
+          clearLog('test3');
+          log('test3', 'Ready to download! Click the button above to save and check in Windows Explorer.');
+
+        } catch (e) {
+          log('test2', `❌ EXCEPTION: ${e.message}\n${e.stack}`, 'fail');
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // ===== TEST 3: Download =====
+    document.getElementById('downloadBtn').addEventListener('click', async () => {
+      if (!lastProcessedDataURL) return;
+      
+      const base64 = lastProcessedDataURL.split(',')[1];
+      const binaryStr = atob(base64);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: 'image/jpeg' });
+
+      if (window.showSaveFilePicker) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: 'exif-test-output.jpg',
+            types: [{ description: 'JPEG', accept: { 'image/jpeg': ['.jpg'] } }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          log('test3', '✅ Saved! Check properties in Windows Explorer.', 'pass');
+        } catch (e) {
+          if (e.name !== 'AbortError') {
+            log('test3', `❌ Save failed: ${e.message}`, 'fail');
+          }
+        }
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'exif-test-output.jpg';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        log('test3', '✅ Download started! Check properties in Windows Explorer.', 'pass');
+      }
+    });
+
+    // Run Test 1 immediately
+    runTest1();
+  </script>
+</body>
+</html>

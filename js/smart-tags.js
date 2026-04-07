@@ -10,71 +10,217 @@
  */
 const SmartTagGenerator = {
 
-  // Related terms thesaurus — maps keywords to related SEO terms
+  // Related terms thesaurus — maps keywords to related SEO terms (LANGUAGE SEPARATED)
   THESAURUS: {
     // Technology
-    'ai': ['artificial intelligence', 'machine learning', 'deep learning', 'AI technology', 'AI solutions'],
-    'software': ['software development', 'phần mềm', 'ứng dụng', 'application', 'tech solutions'],
-    'development': ['phát triển', 'xây dựng', 'lập trình', 'coding', 'programming'],
-    'web': ['website', 'web development', 'trang web', 'thiết kế web', 'web design'],
-    'app': ['ứng dụng', 'mobile app', 'application', 'phần mềm di động'],
-    'cloud': ['điện toán đám mây', 'cloud computing', 'cloud services', 'SaaS'],
-    'data': ['dữ liệu', 'big data', 'data analytics', 'phân tích dữ liệu'],
-    'blockchain': ['blockchain technology', 'công nghệ blockchain', 'crypto', 'Web3', 'decentralized'],
-    'devops': ['DevOps', 'CI/CD', 'automation', 'infrastructure', 'deployment'],
-    'enterprise': ['doanh nghiệp', 'enterprise solutions', 'giải pháp doanh nghiệp', 'B2B'],
-    'custom': ['tùy chỉnh', 'custom-built', 'theo yêu cầu', 'bespoke', 'tailor-made'],
-    'services': ['dịch vụ', 'service provider', 'giải pháp', 'solutions'],
-    'digital': ['số hóa', 'digital transformation', 'chuyển đổi số', 'công nghệ số'],
-    'mobile': ['di động', 'mobile development', 'ứng dụng di động', 'smartphone'],
-    'api': ['API integration', 'tích hợp API', 'web services', 'RESTful'],
-    'security': ['bảo mật', 'cybersecurity', 'an ninh mạng', 'data protection'],
-    'design': ['thiết kế', 'UI/UX', 'graphic design', 'creative design'],
-    'marketing': ['tiếp thị', 'digital marketing', 'SEO', 'online marketing'],
-    'ecommerce': ['thương mại điện tử', 'bán hàng online', 'online store', 'cửa hàng trực tuyến'],
+    'ai': {
+      vi: ['trí tuệ nhân tạo', 'học máy', 'công nghệ AI', 'giải pháp AI'],
+      en: ['artificial intelligence', 'machine learning', 'deep learning', 'AI technology', 'AI solutions']
+    },
+    'software': {
+      vi: ['phần mềm', 'ứng dụng', 'giải pháp phần mềm'],
+      en: ['software development', 'application', 'tech solutions', 'software product']
+    },
+    'development': {
+      vi: ['phát triển', 'xây dựng', 'lập trình'],
+      en: ['coding', 'programming', 'software engineering']
+    },
+    'web': {
+      vi: ['trang web', 'thiết kế web', 'phát triển web'],
+      en: ['website', 'web development', 'web design']
+    },
+    'app': {
+      vi: ['ứng dụng', 'phần mềm di động'],
+      en: ['mobile app', 'application', 'mobile software']
+    },
+    'cloud': {
+      vi: ['điện toán đám mây', 'dịch vụ đám mây'],
+      en: ['cloud computing', 'cloud services', 'SaaS']
+    },
+    'data': {
+      vi: ['dữ liệu', 'phân tích dữ liệu'],
+      en: ['big data', 'data analytics', 'data-driven']
+    },
+    'blockchain': {
+      vi: ['công nghệ blockchain', 'tiền điện tử'],
+      en: ['blockchain technology', 'crypto', 'Web3', 'decentralized']
+    },
+    'devops': {
+      vi: ['tự động hóa', 'hạ tầng công nghệ'],
+      en: ['DevOps', 'CI/CD', 'automation', 'infrastructure']
+    },
+    'enterprise': {
+      vi: ['doanh nghiệp', 'giải pháp doanh nghiệp'],
+      en: ['enterprise solutions', 'B2B', 'corporate software']
+    },
+    'custom': {
+      vi: ['tùy chỉnh', 'theo yêu cầu'],
+      en: ['custom-built', 'bespoke', 'tailor-made']
+    },
+    'services': {
+      vi: ['dịch vụ', 'giải pháp'],
+      en: ['service provider', 'professional services']
+    },
+    'digital': {
+      vi: ['số hóa', 'chuyển đổi số', 'công nghệ số'],
+      en: ['digital transformation', 'digitalization']
+    },
+    'mobile': {
+      vi: ['di động', 'ứng dụng di động'],
+      en: ['mobile development', 'smartphone app']
+    },
+    'api': {
+      vi: ['tích hợp API', 'kết nối hệ thống'],
+      en: ['API integration', 'web services', 'RESTful']
+    },
+    'security': {
+      vi: ['bảo mật', 'an ninh mạng', 'bảo vệ dữ liệu'],
+      en: ['cybersecurity', 'data protection', 'network security']
+    },
+    'design': {
+      vi: ['thiết kế', 'giao diện người dùng'],
+      en: ['UI/UX', 'graphic design', 'creative design']
+    },
+    'marketing': {
+      vi: ['tiếp thị', 'marketing số'],
+      en: ['digital marketing', 'SEO', 'online marketing']
+    },
+    'ecommerce': {
+      vi: ['thương mại điện tử', 'bán hàng online'],
+      en: ['online store', 'e-commerce platform']
+    },
 
     // Carpet / Rug / Thảm
-    'tham': ['thảm', 'thảm trải sàn', 'carpet', 'rug', 'thảm trang trí'],
-    'sofa': ['sofa', 'ghế sofa', 'bàn ghế sofa', 'nội thất phòng khách', 'couch'],
-    'phong': ['phòng', 'không gian', 'nội thất', 'room'],
-    'khach': ['khách', 'phòng khách', 'living room', 'tiếp khách'],
-    'dep': ['đẹp', 'sang trọng', 'cao cấp', 'tinh tế', 'beautiful', 'elegant'],
-    'cao': ['cao cấp', 'premium', 'luxury', 'chất lượng cao', 'high-end'],
-    'cap': ['cấp', 'cao cấp', 'premium', 'hạng sang'],
-    'long': ['lông', 'thảm lông', 'thảm lông xù', 'fluffy', 'shaggy'],
-    'go': ['gỗ', 'ghế gỗ', 'sàn gỗ', 'nội thất gỗ', 'wooden'],
-    'lot': ['lót', 'thảm lót', 'trải lót', 'padding', 'underlay'],
-    'trai': ['trải', 'thảm trải', 'cover', 'spread'],
-    'san': ['sàn', 'sàn nhà', 'floor', 'flooring'],
-    'tron': ['tròn', 'hình tròn', 'circular', 'round'],
-    'vintage': ['vintage', 'cổ điển', 'retro', 'classic style', 'phong cách cổ điển'],
-    'trang': ['trang trí', 'decor', 'decoration', 'nội thất'],
-    'tri': ['trí', 'trang trí', 'decorative'],
-    'mau': ['màu', 'màu sắc', 'color', 'phối màu', 'color scheme'],
-    'phoi': ['phối', 'phối màu', 'kết hợp', 'mix and match'],
+    'tham': {
+      vi: ['thảm', 'thảm trải sàn', 'thảm trang trí', 'thảm phòng khách'],
+      en: ['carpet', 'rug', 'floor mat']
+    },
+    'sofa': {
+      vi: ['ghế sofa', 'nội thất phòng khách', 'sofa phòng khách'],
+      en: ['sofa', 'couch', 'living room furniture']
+    },
+    'phong': {
+      vi: ['phòng', 'không gian', 'nội thất'],
+      en: ['room', 'interior space']
+    },
+    'khach': {
+      vi: ['khách', 'phòng khách', 'tiếp khách'],
+      en: ['living room', 'guest room']
+    },
+    'dep': {
+      vi: ['đẹp', 'sang trọng', 'tinh tế'],
+      en: ['beautiful', 'elegant', 'stylish']
+    },
+    'cao': {
+      vi: ['cao cấp', 'chất lượng cao', 'hạng sang'],
+      en: ['premium', 'high-end', 'luxury']
+    },
+    'long': {
+      vi: ['lông', 'thảm lông', 'thảm lông xù'],
+      en: ['fluffy', 'shaggy', 'furry rug']
+    },
+    'go': {
+      vi: ['gỗ', 'nội thất gỗ', 'sàn gỗ'],
+      en: ['wood', 'wooden furniture', 'hardwood']
+    },
+    'lot': {
+      vi: ['lót', 'thảm lót'],
+      en: ['padding', 'underlay', 'floor padding']
+    },
+    'trai': {
+      vi: ['trải', 'thảm trải'],
+      en: ['floor cover', 'spread']
+    },
+    'san': {
+      vi: ['sàn', 'sàn nhà'],
+      en: ['floor', 'flooring']
+    },
+    'tron': {
+      vi: ['tròn', 'hình tròn'],
+      en: ['circular', 'round', 'round rug']
+    },
+    'vintage': {
+      vi: ['cổ điển', 'phong cách cổ điển'],
+      en: ['vintage', 'retro', 'classic style']
+    },
+    'trang': {
+      vi: ['trang trí', 'trang trí nội thất'],
+      en: ['decor', 'decoration']
+    },
+    'mau': {
+      vi: ['màu', 'màu sắc', 'phối màu'],
+      en: ['color', 'color scheme', 'colorful']
+    },
+    'phoi': {
+      vi: ['phối', 'phối màu', 'kết hợp'],
+      en: ['color mix', 'combination']
+    },
 
     // PPF / Automotive
-    'ppf': ['paint protection film', 'phim bảo vệ sơn', 'PPF ô tô', 'film bảo vệ'],
-    'oto': ['ô tô', 'xe hơi', 'car', 'automotive', 'vehicle'],
-    'xe': ['xe hơi', 'ô tô', 'automobile', 'car'],
-    'bao': ['bảo vệ', 'protection', 'bảo dưỡng'],
-    've': ['vệ', 'bảo vệ', 'vệ sinh'],
+    'ppf': {
+      vi: ['phim bảo vệ sơn', 'PPF ô tô', 'film bảo vệ xe'],
+      en: ['paint protection film', 'PPF', 'clear bra']
+    },
+    'oto': {
+      vi: ['ô tô', 'xe hơi', 'xe ô tô'],
+      en: ['car', 'automotive', 'vehicle']
+    },
+    'xe': {
+      vi: ['xe hơi', 'ô tô'],
+      en: ['automobile', 'car']
+    },
+    'bao': {
+      vi: ['bảo vệ', 'bảo dưỡng'],
+      en: ['protection', 'maintenance']
+    },
 
     // Location
-    'tphcm': ['TP.HCM', 'Hồ Chí Minh', 'Sài Gòn', 'Ho Chi Minh City', 'HCMC'],
-    'hanoi': ['Hà Nội', 'Ha Noi', 'thủ đô', 'Hanoi'],
-    'vietnam': ['Việt Nam', 'Vietnam', 'VN'],
-    'saigon': ['Sài Gòn', 'TP.HCM', 'Ho Chi Minh City'],
+    'tphcm': {
+      vi: ['TP.HCM', 'Hồ Chí Minh', 'Sài Gòn', 'thành phố Hồ Chí Minh'],
+      en: ['Ho Chi Minh City', 'HCMC', 'Saigon']
+    },
+    'hanoi': {
+      vi: ['Hà Nội', 'thủ đô'],
+      en: ['Hanoi', 'Ha Noi', 'Vietnam capital']
+    },
+    'vietnam': {
+      vi: ['Việt Nam', 'VN'],
+      en: ['Vietnam', 'Vietnamese']
+    },
+    'saigon': {
+      vi: ['Sài Gòn', 'TP.HCM'],
+      en: ['Saigon', 'Ho Chi Minh City']
+    },
 
     // Business
-    'gia': ['giá', 'báo giá', 'bảng giá', 'price', 'pricing', 'cost'],
-    'mua': ['mua', 'mua hàng', 'đặt hàng', 'purchase', 'buy'],
-    'ban': ['bán', 'bán hàng', 'cung cấp', 'sell', 'distributor'],
-    'cung': ['cung cấp', 'nhà cung cấp', 'supplier', 'provider'],
-    'huong': ['hướng', 'hướng dẫn', 'guide', 'tutorial', 'how-to'],
-    'dan': ['dẫn', 'hướng dẫn', 'instruction', 'guideline'],
-    'dich': ['dịch', 'dịch vụ', 'service'],
-    'vu': ['vụ', 'dịch vụ', 'service'],
+    'gia': {
+      vi: ['giá', 'báo giá', 'bảng giá'],
+      en: ['price', 'pricing', 'cost']
+    },
+    'mua': {
+      vi: ['mua', 'mua hàng', 'đặt hàng'],
+      en: ['purchase', 'buy', 'order']
+    },
+    'ban': {
+      vi: ['bán', 'bán hàng', 'cung cấp'],
+      en: ['sell', 'distributor', 'supplier']
+    },
+    'cung': {
+      vi: ['cung cấp', 'nhà cung cấp'],
+      en: ['supplier', 'provider']
+    },
+    'huong': {
+      vi: ['hướng', 'hướng dẫn'],
+      en: ['guide', 'tutorial']
+    },
+    'dich': {
+      vi: ['dịch', 'dịch vụ'],
+      en: ['service']
+    },
+    'vu': {
+      vi: ['vụ', 'dịch vụ'],
+      en: ['service']
+    },
   },
 
   /**
@@ -82,16 +228,18 @@ const SmartTagGenerator = {
    * @param {string} filename - Image filename
    * @returns {{tags: string[], comment: string}}
    */
-  generate(filename) {
+  generate(filename, options = {}) {
     const parsed = FilenameParser.parse(filename);
     const words = parsed.tags || []; // cleaned lowercase keywords
     const title = parsed.title;
+    const language = options.language || 'both'; // 'vi', 'en', 'both'
+    const brandName = options.brand || ''; // brand name to protect from splitting
 
     // 1. Generate word combinations
     const combinations = this._generateCombinations(words);
 
-    // 2. Expand with thesaurus
-    const expanded = this._expandWithThesaurus(words);
+    // 2. Expand with thesaurus (language-aware)
+    const expanded = this._expandWithThesaurus(words, language);
 
     // 3. Merge all: original words + combinations + expanded
     const allTags = [...new Set([
@@ -100,8 +248,16 @@ const SmartTagGenerator = {
       ...expanded
     ])].filter(t => t.length > 1);
 
-    // 4. Generate natural comment
-    const comment = this._generateComment(title, words, expanded);
+    // 4. Add brand as protected unified tag if provided
+    if (brandName && brandName.length > 1) {
+      const brandLower = brandName.toLowerCase();
+      if (!allTags.some(t => t.toLowerCase() === brandLower)) {
+        allTags.unshift(brandName); // Add brand as first tag
+      }
+    }
+
+    // 5. Generate natural comment
+    const comment = this._generateComment(title, words, expanded, language);
 
     return { tags: allTags, comment };
   },
@@ -132,16 +288,29 @@ const SmartTagGenerator = {
   },
 
   /**
-   * Expand keywords using thesaurus
+   * Expand keywords using thesaurus (language-aware)
+   * @param {string[]} words - Keywords
+   * @param {string} language - 'vi', 'en', or 'both'
    */
-  _expandWithThesaurus(words) {
+  _expandWithThesaurus(words, language = 'both') {
     const expanded = [];
 
     words.forEach(word => {
       const key = word.toLowerCase();
-      if (this.THESAURUS[key]) {
-        // Add related terms (max 3 per word to avoid bloat)
-        expanded.push(...this.THESAURUS[key].slice(0, 3));
+      const entry = this.THESAURUS[key];
+      if (!entry) return;
+
+      // New format: { vi: [...], en: [...] }
+      if (typeof entry === 'object' && !Array.isArray(entry)) {
+        if (language === 'vi' || language === 'both') {
+          expanded.push(...(entry.vi || []).slice(0, 3));
+        }
+        if (language === 'en' || language === 'both') {
+          expanded.push(...(entry.en || []).slice(0, 3));
+        }
+      } else if (Array.isArray(entry)) {
+        // Legacy format fallback
+        expanded.push(...entry.slice(0, 3));
       }
     });
 
@@ -152,8 +321,8 @@ const SmartTagGenerator = {
    * Generate a natural meta description (~160 chars) from filename
    * Auto-detects language: English filename → English desc, Vietnamese → Vietnamese
    */
-  _generateComment(title, words, expandedTerms) {
-    const isVi = this._isVietnamese(title, words);
+  _generateComment(title, words, expandedTerms, language = 'both') {
+    const isVi = language === 'vi' || (language === 'both' && this._isVietnamese(title, words));
     const domain = this._detectDomain(words);
 
     // Build description based on domain + language
@@ -275,30 +444,110 @@ const SmartTagGenerator = {
    * @param {Array} images - Array of image objects with .filename and .metadata
    * @returns {number} Number of images processed
    */
-  processAll(images) {
+  processAll(images, options = {}) {
+    const language = options.language || 'both';
+    const brandName = options.brand || '';
     let count = 0;
 
     images.forEach(img => {
-      const result = this.generate(img.filename);
+      const result = this.generate(img.filename, { language, brand: brandName });
       const parsed = FilenameParser.parse(img.filename);
 
-      // Tags: merge filename tags + smart generated tags
-      const filenameTagsArr = parsed.tags || [];
-      const mergedTags = [...new Set([
-        ...filenameTagsArr,
-        ...result.tags
-      ])];
-      img.metadata.tags = mergedTags.join('; ');
+      // Tags: only fill if currently empty; otherwise merge new tags into existing
+      const existingTagsStr = (img.metadata.tags || '').trim();
+      if (!existingTagsStr) {
+        // No existing tags — generate from scratch
+        const filenameTagsArr = parsed.tags || [];
+        const mergedTags = [...new Set([
+          ...filenameTagsArr,
+          ...result.tags
+        ])];
+        img.metadata.tags = mergedTags.join('; ');
+      } else {
+        // Has existing tags — merge new tags without duplicates
+        const existingTags = existingTagsStr.split(';').map(t => t.trim()).filter(Boolean);
+        const existingLower = new Set(existingTags.map(t => t.toLowerCase()));
+        const newTags = result.tags.filter(t => !existingLower.has(t.toLowerCase()));
+        if (newTags.length > 0) {
+          img.metadata.tags = [...existingTags, ...newTags].join('; ');
+        }
+      }
 
-      // Comment: use generated comment
-      if (result.comment) {
+      // Comment: only fill if currently empty AND not yet AI-processed
+      // If img.aiProcessed = true, the AI already wrote the comment (even if it was empty from AI,
+      // we trust the offline template only when AI was never used for this image)
+      if (!img.metadata.comment && !img.aiProcessed && result.comment) {
         img.metadata.comment = result.comment;
       }
 
-      img.aiProcessed = true;
+      // BUG FIX #1: Title & Subject — offline mode only fills if empty (never override)
+      if (!img.metadata.title && parsed.title) {
+        img.metadata.title = parsed.title;
+      }
+
+      if (!img.metadata.subject && parsed.subject) {
+        img.metadata.subject = parsed.subject;
+      }
+
       count++;
     });
 
     return count;
+  },
+
+  /**
+   * Add website info to AUTHOR and COPYRIGHT fields only — NOT to tags.
+   * BUG FIX #2: Website URL should go to author/copyright metadata, not tag keywords.
+   * @param {Array} images - Array of image objects
+   * @param {string} websiteUrl - Full URL like "https://autolinkvietnam.com.vn"
+   */
+  addWebsiteToMetadata(images, websiteUrl) {
+    if (!websiteUrl || !images || images.length === 0) return;
+
+    // Extract clean domain from URL
+    let domain = websiteUrl;
+    try {
+      if (!domain.startsWith('http')) {
+        domain = 'https://' + domain;
+      }
+      const urlObj = new URL(domain);
+      domain = urlObj.hostname;
+    } catch (e) {
+      domain = websiteUrl
+        .replace(/^https?:\/\//i, '')
+        .replace(/\/.*$/, '')
+        .replace(/^www\./, '')
+        .trim();
+    }
+
+    if (!domain) return;
+
+    const cleanDomain = domain.replace(/^www\./, '');
+    const cleanUrl = websiteUrl.replace(/\/+$/, '');
+
+    console.log(`[SmartTags] Adding website to author/copyright metadata: ${cleanDomain}`);
+
+    // Apply to all images — only update author/copyright, NOT tags
+    images.forEach(img => {
+      // Append domain to copyright if not already there
+      if (!img.metadata.copyright) {
+        img.metadata.copyright = cleanUrl;
+      } else if (!img.metadata.copyright.toLowerCase().includes(cleanDomain.toLowerCase())) {
+        img.metadata.copyright = `${img.metadata.copyright} - ${cleanUrl}`;
+      }
+
+      // If author is empty, set it to the domain
+      if (!img.metadata.author) {
+        img.metadata.author = cleanDomain;
+      }
+    });
+  },
+
+  /**
+   * @deprecated Use addWebsiteToMetadata instead
+   * Legacy method kept for backward compatibility — now routes to addWebsiteToMetadata
+   */
+  addWebsiteTags(images, websiteUrl) {
+    return this.addWebsiteToMetadata(images, websiteUrl);
   }
 };

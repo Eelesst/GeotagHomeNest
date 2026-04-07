@@ -18,8 +18,20 @@ const App = {
     globalSettings: {
       author: '',
       copyright: '',
-      apiKey: '',
-      aiMode: false
+      websiteUrl: '',
+      autoRating: true,
+      apiKey: '',       // Gemini API key
+      openrouterKey: '', // OpenRouter API key
+      aiMode: false,
+      aiProvider: 'gemini' // 'gemini', 'openrouter', 'auto'
+    },
+    projectContext: {
+      industry: '',
+      description: '',
+      brand: '',
+      mainKeywords: '',
+      language: 'vi',
+      visionMode: false
     }
   },
 
@@ -30,12 +42,13 @@ const App = {
     this.bindGPSEvents();
     this.bindActionEvents();
     this.bindSettingsEvents();
+    this.bindProjectContextEvents();
 
     // Initialize map
     GeoTagger.init('map');
     GeoTagger.onCoordsChange = (coords) => this.onMapCoordsChange(coords);
 
-    console.log('✅ Image GeoTag & Metadata Tool initialized');
+    console.log('✅ Image GeoTag & Metadata Tool v1.1 initialized');
   },
 
   // ==================== UPLOAD HANDLING ====================
@@ -164,6 +177,7 @@ const App = {
             comment: existingExif.comment || parsed.comment,
             author: existingExif.author || this.state.globalSettings.author,
             copyright: existingExif.copyright || this.state.globalSettings.copyright,
+            rating: existingExif.rating || (this.state.globalSettings.autoRating ? 5 : 0),
             gps: existingExif.gps || null
           },
           aiProcessed: false
@@ -495,38 +509,88 @@ const App = {
 
   // ==================== SETTINGS EVENTS ====================
   bindSettingsEvents() {
-    // AI mode toggle
+    // AI mode toggle — show/hide all AI-related settings
     document.getElementById('aiModeToggle').addEventListener('change', (e) => {
       this.state.globalSettings.aiMode = e.target.checked;
-      document.getElementById('apiKeyGroup').style.display = e.target.checked ? 'flex' : 'none';
+      const show = e.target.checked ? 'flex' : 'none';
+      document.getElementById('aiProviderGroup').style.display = show;
+      document.getElementById('visionToggleGroup').style.display = show;
+      document.getElementById('projectContextBar').style.display = e.target.checked ? 'block' : 'none';
+      this._updateAIKeyVisibility();
     });
 
-    // Global author/copyright inputs
+    // AI provider selector
+    document.getElementById('aiProvider').addEventListener('change', (e) => {
+      this.state.globalSettings.aiProvider = e.target.value;
+      try { localStorage.setItem('geotag_ai_provider', e.target.value); } catch(ex) {}
+      this._updateAIKeyVisibility();
+    });
+
+    // Vision mode toggle
+    document.getElementById('visionModeToggle').addEventListener('change', (e) => {
+      this.state.projectContext.visionMode = e.target.checked;
+      try { localStorage.setItem('geotag_vision_mode', e.target.checked ? '1' : '0'); } catch(ex) {}
+    });
+
+    // Auto Rating toggle
+    document.getElementById('autoRatingToggle').addEventListener('change', (e) => {
+      this.state.globalSettings.autoRating = e.target.checked;
+      try { localStorage.setItem('geotag_auto_rating', e.target.checked ? '1' : '0'); } catch(ex) {}
+    });
+
+    // Global author/copyright/website inputs
     document.getElementById('globalAuthor').addEventListener('input', (e) => {
       this.state.globalSettings.author = e.target.value;
     });
     document.getElementById('globalCopyright').addEventListener('input', (e) => {
       this.state.globalSettings.copyright = e.target.value;
     });
+    document.getElementById('globalWebsiteUrl').addEventListener('input', (e) => {
+      this.state.globalSettings.websiteUrl = e.target.value.trim();
+    });
+
+    // Gemini API key
     document.getElementById('globalApiKey').addEventListener('input', (e) => {
       this.state.globalSettings.apiKey = e.target.value;
-      // Save to localStorage for persistence
       try { localStorage.setItem('geotag_api_key', e.target.value); } catch(ex) {}
     });
 
-    // Restore API key from localStorage
+    // OpenRouter API key
+    document.getElementById('openrouterApiKey').addEventListener('input', (e) => {
+      this.state.globalSettings.openrouterKey = e.target.value;
+      try { localStorage.setItem('geotag_openrouter_key', e.target.value); } catch(ex) {}
+    });
+
+    // Restore all saved settings from localStorage
     try {
       const savedKey = localStorage.getItem('geotag_api_key');
+      const savedORKey = localStorage.getItem('geotag_openrouter_key');
+      const savedProvider = localStorage.getItem('geotag_ai_provider');
+      const savedVision = localStorage.getItem('geotag_vision_mode');
       if (savedKey) {
         document.getElementById('globalApiKey').value = savedKey;
         this.state.globalSettings.apiKey = savedKey;
       }
+      if (savedORKey) {
+        document.getElementById('openrouterApiKey').value = savedORKey;
+        this.state.globalSettings.openrouterKey = savedORKey;
+      }
+      if (savedProvider) {
+        document.getElementById('aiProvider').value = savedProvider;
+        this.state.globalSettings.aiProvider = savedProvider;
+      }
+      if (savedVision === '1') {
+        document.getElementById('visionModeToggle').checked = true;
+        this.state.projectContext.visionMode = true;
+      }
     } catch(ex) {}
 
-    // Restore author/copyright from localStorage
+    // Restore author/copyright/website/rating from localStorage
     try {
       const savedAuthor = localStorage.getItem('geotag_author');
       const savedCopyright = localStorage.getItem('geotag_copyright');
+      const savedWebsite = localStorage.getItem('geotag_website_url');
+      const savedRating = localStorage.getItem('geotag_auto_rating');
       if (savedAuthor) {
         document.getElementById('globalAuthor').value = savedAuthor;
         this.state.globalSettings.author = savedAuthor;
@@ -535,14 +599,26 @@ const App = {
         document.getElementById('globalCopyright').value = savedCopyright;
         this.state.globalSettings.copyright = savedCopyright;
       }
+      if (savedWebsite) {
+        document.getElementById('globalWebsiteUrl').value = savedWebsite;
+        this.state.globalSettings.websiteUrl = savedWebsite;
+      }
+      if (savedRating !== null) {
+        const isOn = savedRating !== '0';
+        document.getElementById('autoRatingToggle').checked = isOn;
+        this.state.globalSettings.autoRating = isOn;
+      }
     } catch(ex) {}
 
-    // Save author/copyright to localStorage on change
+    // Save author/copyright/website to localStorage on change
     document.getElementById('globalAuthor').addEventListener('change', (e) => {
       try { localStorage.setItem('geotag_author', e.target.value); } catch(ex) {}
     });
     document.getElementById('globalCopyright').addEventListener('change', (e) => {
       try { localStorage.setItem('geotag_copyright', e.target.value); } catch(ex) {}
+    });
+    document.getElementById('globalWebsiteUrl').addEventListener('change', (e) => {
+      try { localStorage.setItem('geotag_website_url', e.target.value.trim()); } catch(ex) {}
     });
 
     // Apply global settings
@@ -552,21 +628,46 @@ const App = {
   },
 
   /**
+   * Show/hide API key fields based on selected provider
+   */
+  _updateAIKeyVisibility() {
+    const provider = this.state.globalSettings.aiProvider;
+    const aiOn = this.state.globalSettings.aiMode;
+    const showGemini = aiOn && (provider === 'gemini' || provider === 'auto');
+    const showOR = aiOn && (provider === 'openrouter' || provider === 'auto');
+    document.getElementById('geminiKeyGroup').style.display = showGemini ? 'flex' : 'none';
+    document.getElementById('openrouterKeyGroup').style.display = showOR ? 'flex' : 'none';
+  },
+
+  /**
    * Apply author & copyright to all images
    */
   applyGlobalSettings() {
     const author = this.state.globalSettings.author;
     const copyright = this.state.globalSettings.copyright;
+    const websiteUrl = this.state.globalSettings.websiteUrl;
+    const autoRating = this.state.globalSettings.autoRating;
 
-    if (!author && !copyright) {
-      this.showToast('Chưa nhập Author hoặc Copyright', 'warning');
+    if (!author && !copyright && !websiteUrl) {
+      this.showToast('Chưa nhập Author, Copyright hoặc Website URL', 'warning');
       return;
     }
 
     this.state.images.forEach(img => {
       if (author) img.metadata.author = author;
       if (copyright) img.metadata.copyright = copyright;
+      if (autoRating) img.metadata.rating = 5;
     });
+
+    // Add website URL to author/copyright only — NOT to tags (Bug Fix #2)
+    if (websiteUrl) {
+      SmartTagGenerator.addWebsiteToMetadata(this.state.images, websiteUrl);
+    }
+
+    // Refresh form if image selected
+    if (this.state.selectedId) {
+      this.selectImage(this.state.selectedId);
+    }
 
     this.showToast(`✅ Đã áp dụng cho ${this.state.images.length} ảnh`, 'success');
   },
@@ -619,55 +720,55 @@ const App = {
     const btn = document.getElementById('btnAiTags');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Đang sinh tags...';
-    this.showProgress(30, 'Đang sinh tags từ tên file...');
+    this.showProgress(5, 'Đang chuẩn bị...');
 
-    // Step 1: ALWAYS use offline SmartTagGenerator (instant, no API)
-    const count = SmartTagGenerator.processAll(this.state.images);
-    console.log(`[SmartTags] ✅ Generated tags for ${count} images (offline)`);
+    const aiMode = this.state.globalSettings.aiMode;
+    const geminiKey = this.state.globalSettings.apiKey;
+    const openrouterKey = this.state.globalSettings.openrouterKey;
+    const hasAIKey = geminiKey || openrouterKey;
 
-    this.showProgress(60, `Đã sinh ${count} ảnh offline...`);
+    let usedProvider = 'Offline';
 
-    // Step 2: TRY to enhance with Gemini API (optional)
-    const apiKey = this.state.globalSettings.apiKey;
-    let geminiSuccess = false;
-
-    if (apiKey && this.state.globalSettings.aiMode) {
-      this.showProgress(70, 'Đang nâng cấp bằng Gemini AI...');
-
+    if (aiMode && hasAIKey) {
+      // ===== AI MODE: Use AIProvider with project context =====
       try {
-        const topics = this.state.images.map(img => {
-          const parsed = FilenameParser.parse(img.filename);
-          return { filename: img.filename, title: parsed.title, tags: parsed.tags };
-        });
+        const config = {
+          provider: this.state.globalSettings.aiProvider,
+          geminiKey: geminiKey,
+          openrouterKey: openrouterKey,
+          projectContext: { ...this.state.projectContext }
+        };
 
-        const aiResults = await this.callGeminiAPI(topics, apiKey);
+        const { results, provider } = await AIProvider.processImages(
+          this.state.images,
+          config,
+          (pct, msg) => this.showProgress(pct, msg)
+        );
 
-        // Merge Gemini results ON TOP of offline results
-        aiResults.forEach((result, i) => {
-          if (i >= this.state.images.length) return;
-          const img = this.state.images[i];
+        // Merge AI results into image metadata
+        AIProvider.mergeResults(this.state.images, results);
+        usedProvider = provider;
 
-          // Add Gemini tags to existing (offline) tags
-          if (result.tags && result.tags.length > 0) {
-            const existingTags = img.metadata.tags
-              ? img.metadata.tags.split(';').map(t => t.trim()).filter(Boolean)
-              : [];
-            const merged = [...new Set([...existingTags, ...result.tags.map(t => t.trim())])];
-            img.metadata.tags = merged.join('; ');
-          }
-
-          // Gemini comment replaces offline comment (usually better quality)
-          if (result.comment) {
-            img.metadata.comment = result.comment;
-          }
-        });
-
-        geminiSuccess = true;
-        console.log('[Gemini] ✅ Enhanced with AI results');
-
+        console.log(`[AI] ✅ Processed ${results.length} images via ${provider}`);
       } catch (err) {
-        console.warn('[Gemini] Skipped (using offline results):', err.message);
+        console.warn('[AI] All providers failed, falling back to offline:', err.message);
+        this.showProgress(60, 'AI thất bại, dùng offline...');
       }
+    }
+
+    // ===== ALWAYS run offline SmartTagGenerator to fill gaps =====
+    this.showProgress(85, 'Đang bổ sung tags offline...');
+    const offlineOptions = {
+      language: this.state.projectContext.language || 'both',
+      brand: this.state.projectContext.brand || ''
+    };
+    const offlineCount = SmartTagGenerator.processAll(this.state.images, offlineOptions);
+    console.log(`[SmartTags] ✅ Offline processed ${offlineCount} images`);
+
+    // Add website to author/copyright only (NOT to tags)
+    const websiteUrl = this.state.globalSettings.websiteUrl;
+    if (websiteUrl) {
+      SmartTagGenerator.addWebsiteToMetadata(this.state.images, websiteUrl);
     }
 
     // Refresh form
@@ -679,143 +780,148 @@ const App = {
     btn.innerHTML = '🤖 AI Tags';
     this.hideProgress();
 
-    if (geminiSuccess) {
-      this.showToast(`✅ Đã sinh tags cho ${count} ảnh (Offline + Gemini AI)`, 'success');
+    const total = this.state.images.length;
+    if (usedProvider !== 'Offline') {
+      this.showToast(`✅ Đã sinh tags cho ${total} ảnh (${usedProvider} + Offline)`, 'success');
     } else {
-      this.showToast(`✅ Đã sinh tags cho ${count} ảnh (Offline)`, 'success');
+      this.showToast(`✅ Đã sinh tags cho ${total} ảnh (Offline)`, 'success');
     }
   },
 
-  /**
-   * Call Google Gemini API — ONE call for ALL images
-   * Sends all filenames in a single prompt, receives tags+comment for each
-   * @param {Array<{filename: string, title: string, tags: string[]}>} topics
-   * @param {string} apiKey
-   * @returns {Promise<Array<{tags: string[], comment: string}>>}
-   */
-  async callGeminiAPI(topics, apiKey) {
-    const topicList = topics.map((t, i) => `${i + 1}. "${t.title}"`).join('\n');
+  // ==================== PROJECT CONTEXT MANAGEMENT ====================
+  bindProjectContextEvents() {
+    // Bind context input fields to state
+    const ctxFields = [
+      { id: 'ctxIndustry', key: 'industry' },
+      { id: 'ctxDescription', key: 'description' },
+      { id: 'ctxBrand', key: 'brand' },
+      { id: 'ctxKeywords', key: 'mainKeywords' },
+      { id: 'ctxLanguage', key: 'language' }
+    ];
 
-    const prompt = `You are an SEO expert. I have ${topics.length} images with these topics:
-${topicList}
+    ctxFields.forEach(({ id, key }) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', (e) => {
+        this.state.projectContext[key] = e.target.value;
+      });
+      el.addEventListener('change', (e) => {
+        this.state.projectContext[key] = e.target.value;
+      });
+    });
 
-For EACH image, generate:
-- 10-15 SEO tags/keywords (main keywords, long-tail variations, related terms, synonyms)
-- A natural description (50-80 words) for image alt text and SEO metadata
+    // Save project button
+    document.getElementById('btnSaveProject').addEventListener('click', () => {
+      this._saveProject();
+    });
 
-Return a JSON array with exactly ${topics.length} items:
-[{"tags":["tag1","tag2"],"comment":"description"},{"tags":["tag1","tag2"],"comment":"description"}]
-
-IMPORTANT: Return ONLY the JSON array. No markdown, no code blocks, no extra text.`;
-
-    // Try multiple models
-    const models = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
-    let lastError = null;
-
-    for (const model of models) {
-      try {
-        console.log(`[Gemini] Trying model: ${model}...`);
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 2048,
-                responseMimeType: 'application/json'
-              }
-            })
-          }
-        );
-
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          const msg = err.error?.message || `API Error: ${response.status}`;
-          if (response.status === 429 || msg.includes('quota') || msg.includes('rate') || msg.includes('exhausted')) {
-            console.warn(`[Gemini] ${model}: quota exceeded, trying next...`);
-            lastError = new Error(`${model}: Quota exceeded`);
-            await this.sleep(2000);
-            continue;
-          }
-          if (msg.includes('not found') || msg.includes('not supported')) {
-            console.warn(`[Gemini] ${model}: not available, trying next...`);
-            lastError = new Error(`${model}: not available`);
-            continue;
-          }
-          throw new Error(msg);
-        }
-
-        const data = await response.json();
-        console.log(`[Gemini] ✅ Success with model: ${model}`);
-        return this._parseGeminiArrayResponse(data, topics.length);
-
-      } catch (fetchErr) {
-        if (fetchErr.message?.includes('quota') || fetchErr.message?.includes('rate') ||
-            fetchErr.message?.includes('not found') || fetchErr.message?.includes('not available')) {
-          lastError = fetchErr;
-          continue;
-        }
-        throw fetchErr;
+    // Load project from dropdown
+    document.getElementById('savedProjects').addEventListener('change', (e) => {
+      if (e.target.value) {
+        this._loadProject(e.target.value);
       }
-    }
+    });
 
-    throw lastError || new Error('Tất cả model đều hết quota. Vui lòng chờ 1 phút rồi thử lại.');
+    // Delete project button
+    document.getElementById('btnDeleteProject').addEventListener('click', () => {
+      const sel = document.getElementById('savedProjects').value;
+      if (sel) this._deleteProject(sel);
+    });
+
+    // Restore last used context from localStorage
+    this._restoreProjectContext();
+    this._refreshProjectDropdown();
   },
 
-  /**
-   * Parse Gemini response expecting a JSON array of results
-   */
-  _parseGeminiArrayResponse(data, expectedCount) {
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      throw new Error('Gemini returned empty response');
+  _saveProject() {
+    const ctx = this.state.projectContext;
+    const name = ctx.brand || ctx.industry || 'Project';
+    if (!name || (!ctx.industry && !ctx.brand && !ctx.description)) {
+      this.showToast('Vui lòng nhập ít nhất ngành hoặc brand', 'warning');
+      return;
     }
 
     try {
-      const cleanText = text
-        .replace(/```json\s*/gi, '')
-        .replace(/```\s*/g, '')
-        .trim();
-
-      const parsed = JSON.parse(cleanText);
-
-      // Handle both array and single object
-      const arr = Array.isArray(parsed) ? parsed : [parsed];
-
-      // Ensure we have results for all images
-      return arr.map(item => ({
-        tags: Array.isArray(item?.tags) ? item.tags : [],
-        comment: typeof item?.comment === 'string' ? item.comment : ''
-      }));
-    } catch (parseErr) {
-      console.warn('[Gemini] JSON parse failed, trying manual extraction:', text.substring(0, 200));
-
-      // Try to extract individual objects from text
-      const results = [];
-      const objRegex = /\{[^{}]*"tags"\s*:\s*\[[^\]]*\][^{}]*"comment"\s*:\s*"[^"]*"[^{}]*\}/g;
-      let match;
-      while ((match = objRegex.exec(text)) !== null) {
-        try {
-          const item = JSON.parse(match[0]);
-          results.push({
-            tags: Array.isArray(item.tags) ? item.tags : [],
-            comment: typeof item.comment === 'string' ? item.comment : ''
-          });
-        } catch (e) { /* skip invalid */ }
-      }
-
-      if (results.length > 0) return results;
-
-      // Last resort: return empty results
-      return Array(expectedCount).fill({ tags: [], comment: '' });
+      const projects = JSON.parse(localStorage.getItem('geotag_projects') || '{}');
+      const key = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      projects[key] = { name, ...ctx, savedAt: new Date().toISOString() };
+      localStorage.setItem('geotag_projects', JSON.stringify(projects));
+      localStorage.setItem('geotag_last_project', key);
+      this._refreshProjectDropdown();
+      this.showToast(`✅ Đã lưu project "${name}"`, 'success');
+    } catch (ex) {
+      this.showToast('Lỗi lưu project', 'error');
     }
   },
 
+  _loadProject(key) {
+    try {
+      const projects = JSON.parse(localStorage.getItem('geotag_projects') || '{}');
+      const proj = projects[key];
+      if (!proj) return;
+
+      this.state.projectContext.industry = proj.industry || '';
+      this.state.projectContext.description = proj.description || '';
+      this.state.projectContext.brand = proj.brand || '';
+      this.state.projectContext.mainKeywords = proj.mainKeywords || '';
+      this.state.projectContext.language = proj.language || 'vi';
+
+      // Update UI
+      document.getElementById('ctxIndustry').value = proj.industry || '';
+      document.getElementById('ctxDescription').value = proj.description || '';
+      document.getElementById('ctxBrand').value = proj.brand || '';
+      document.getElementById('ctxKeywords').value = proj.mainKeywords || '';
+      document.getElementById('ctxLanguage').value = proj.language || 'vi';
+
+      localStorage.setItem('geotag_last_project', key);
+      this.showToast(`✅ Đã load project "${proj.name}"`, 'success');
+    } catch (ex) {}
+  },
+
+  _deleteProject(key) {
+    try {
+      const projects = JSON.parse(localStorage.getItem('geotag_projects') || '{}');
+      const name = projects[key]?.name || key;
+      delete projects[key];
+      localStorage.setItem('geotag_projects', JSON.stringify(projects));
+      this._refreshProjectDropdown();
+      document.getElementById('savedProjects').value = '';
+      this.showToast(`🗑️ Đã xóa project "${name}"`, 'info');
+    } catch (ex) {}
+  },
+
+  _refreshProjectDropdown() {
+    const select = document.getElementById('savedProjects');
+    if (!select) return;
+    const lastProject = localStorage.getItem('geotag_last_project') || '';
+
+    try {
+      const projects = JSON.parse(localStorage.getItem('geotag_projects') || '{}');
+      select.innerHTML = '<option value="">📂 Chọn project...</option>';
+      Object.keys(projects).forEach(key => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = projects[key].name || key;
+        if (key === lastProject) opt.selected = true;
+        select.appendChild(opt);
+      });
+    } catch (ex) {}
+  },
+
+  _restoreProjectContext() {
+    try {
+      const lastKey = localStorage.getItem('geotag_last_project');
+      if (lastKey) {
+        const projects = JSON.parse(localStorage.getItem('geotag_projects') || '{}');
+        if (projects[lastKey]) {
+          this._loadProject(lastKey);
+        }
+      }
+    } catch (ex) {}
+  },
+
   // ==================== WRITE METADATA ====================
-  writeAllMetadata() {
+  async writeAllMetadata() {
     if (this.state.images.length === 0) {
       this.showToast('Chưa có ảnh nào', 'warning');
       return;
@@ -836,8 +942,13 @@ IMPORTANT: Return ONLY the JSON array. No markdown, no code blocks, no extra tex
         if (!img.metadata.copyright && this.state.globalSettings.copyright) {
           img.metadata.copyright = this.state.globalSettings.copyright;
         }
+        // Auto 5-star rating
+        if (this.state.globalSettings.autoRating && (!img.metadata.rating || img.metadata.rating < 5)) {
+          img.metadata.rating = 5;
+        }
 
-        // Write EXIF
+        // Write EXIF metadata onto the original image (preserving existing metadata)
+        // writeExif loads existing EXIF first, then only adds/updates our fields
         const newDataURL = MetadataManager.writeExif(img.dataURL, img.metadata);
         img.dataURL = newDataURL;
 
