@@ -458,10 +458,9 @@ const MetadataManager = {
       exifObj['0th'][40094] = this.encodeUTF16LE(tagsStr); // XPKeywords
     }
 
-    // Comment → XPComment (Windows) and UserComment (Standard EXIF)
+    // Comment → XPComment only (no UserComment in Exif IFD due to piexifjs bug with UNDEFINED type)
     if (metadata.comment) {
       exifObj['0th'][40092] = this.encodeUTF16LE(metadata.comment); // XPComment
-      exifObj['Exif'][piexif.ExifIFD.UserComment] = this.encodeUserComment(metadata.comment); // Standard UserComment
     }
 
     // Author → XPAuthor only (no Artist standard tag to avoid conflict)

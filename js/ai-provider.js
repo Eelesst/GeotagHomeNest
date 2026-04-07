@@ -147,185 +147,107 @@ RULES:
   },
 
   /**
-   * Call Gemini API
-   * @param {string} prompt - Text prompt
-   * @param {string} apiKey - Gemini API key
-   * @param {Array<string>} imageThumbnails - Optional base64 thumbnails for Vision
-   * @returns {Promise<Object>} API response data
+   * Helper to generate a cache key
    */
-  async callGemini(prompt, apiKey, imageThumbnails = []) {
-    const models = this.providers.gemini.models;
-    let lastError = null;
-
-    for (const model of models) {
-      try {
-        console.log(`[AI] Gemini: trying ${model}...`);
-
-        // Build parts: text + optional images
-        const parts = [{ text: prompt }];
-        for (const thumb of imageThumbnails) {
-          if (thumb) {
-            const base64 = thumb.split(',')[1];
-            if (base64) {
-              parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64 } });
-            }
-          }
-        }
-
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts }],
-              generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 4096,
-                responseMimeType: 'application/json'
-              }
-            })
-          }
-        );
-
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          const msg = err.error?.message || `API Error: ${response.status}`;
-          if (response.status === 429 || msg.includes('quota') || msg.includes('rate') || msg.includes('exhausted')) {
-            console.warn(`[AI] Gemini ${model}: quota exceeded`);
-            lastError = new Error(`Gemini quota exceeded`);
-            await this._sleep(2000);
-            continue;
-          }
-          if (msg.includes('not found') || msg.includes('not supported')) {
-            lastError = new Error(`${model}: not available`);
-            continue;
-          }
-          throw new Error(msg);
-        }
-
-        const data = await response.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) throw new Error('Empty response');
-
-        console.log(`[AI] ✅ Gemini ${model} success`);
-        return this._parseJSON(text);
-
-      } catch (err) {
-        if (err.message?.includes('quota') || err.message?.includes('not available')) {
-          lastError = err;
-          continue;
-        }
-        throw err;
-      }
-    }
-
-    throw lastError || new Error('All Gemini models failed');
+  _generateCacheKey(img, projectContext) {
+    // Basic hash of the filename
+    const nameStr = img.filename;
+    // Include context to avoid stale cache across different niches
+    const ctxString = `${projectContext.industry}_${projectContext.brand}_${projectContext.language}`;
+    return `geotag_ai_${btoa(unescape(encodeURIComponent(nameStr + ctxString))).substring(0, 32)}`;
   },
 
   /**
-   * Call OpenRouter API
+   * Call Vercel Serverless API
    * @param {string} prompt - Text prompt
-   * @param {string} apiKey - OpenRouter API key
    * @param {Array<string>} imageThumbnails - Optional thumbnails for Vision
    * @returns {Promise<Object>} Parsed JSON response
    */
-  async callOpenRouter(prompt, apiKey, imageThumbnails = []) {
-    const models = this.providers.openrouter.models;
-    let lastError = null;
+  async callServerless(prompt, imageThumbnails = []) {
+    try {
+      console.log(`[AI] Calling Vercel Serverless Endpoint...`);
 
-    for (const model of models) {
-      try {
-        console.log(`[AI] OpenRouter: trying ${model}...`);
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt,
+          imageThumbnails
+        })
+      });
 
-        // Build message content
-        const content = [{ type: 'text', text: prompt }];
-        for (const thumb of imageThumbnails) {
-          if (thumb) {
-            content.push({ type: 'image_url', image_url: { url: thumb } });
-          }
-        }
-
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': window.location.href,
-            'X-Title': 'Image GeoTag Tool'
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: [{ role: 'user', content }],
-            temperature: 0.7,
-            max_tokens: 4096
-            // NOTE: Do NOT set response_format: json_object here.
-            // json_object forces a single object return, breaking multi-image array responses.
-            // We parse the JSON manually from the text response instead.
-          })
-        });
-
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          const msg = err.error?.message || `API Error: ${response.status}`;
-          if (response.status === 429) {
-            console.warn(`[AI] OpenRouter ${model}: rate limited`);
-            lastError = new Error('OpenRouter rate limited');
-            await this._sleep(3000);
-            continue;
-          }
-          if (response.status === 402) {
-            console.warn(`[AI] OpenRouter ${model}: needs credits, trying free model...`);
-            lastError = new Error('OpenRouter needs credits');
-            continue;
-          }
-          if (response.status === 404 || msg.includes('not found') || msg.includes('No endpoints')) {
-            console.warn(`[AI] OpenRouter ${model}: not available`);
-            lastError = new Error(`${model}: not available`);
-            continue;
-          }
-          throw new Error(msg);
-        }
-
-        const data = await response.json();
-        const text = data?.choices?.[0]?.message?.content;
-        if (!text) throw new Error('Empty response');
-
-        console.log(`[AI] ✅ OpenRouter ${model} success`);
-        return this._parseJSON(text);
-
-      } catch (err) {
-        if (err.message?.includes('rate limit') || err.message?.includes('not available') || err.message?.includes('needs credits')) {
-          lastError = err;
-          continue;
-        }
-        throw err;
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Server API Error: ${response.status}`);
       }
-    }
 
-    throw lastError || new Error('All OpenRouter models failed');
+      const data = await response.json();
+      if (!data.text) throw new Error('Empty response from Serverless Endpoint');
+
+      console.log(`[AI] ✅ Serverless ${data.provider || 'Success'}`);
+      return this._parseJSON(data.text);
+
+    } catch (err) {
+      throw err;
+    }
   },
 
   /**
    * Main entry point: process images with AI using fallback chain
-   * Gemini → OpenRouter → Offline
+   * Local Cache -> Serverless API -> Offline
    * 
    * @param {Array} images - Image objects from app state
-   * @param {Object} config - { provider, geminiKey, openrouterKey, projectContext }
+   * @param {Object} config - { projectContext, forceIgnoreCache }
    * @param {Function} onProgress - Progress callback (percentage, message)
    * @returns {Promise<{results: Array, provider: string}>}
    */
   async processImages(images, config, onProgress) {
-    const { provider, geminiKey, openrouterKey, projectContext } = config;
+    const { projectContext, forceIgnoreCache } = config;
     const batchSize = 5;
-    const allResults = [];
-    let usedProvider = 'offline';
+    const finalResults = new Array(images.length).fill(null);
+    let usedProvider = 'Local Cache';
+    
+    // Step 1: Check cache for each image
+    const uncachedIndices = [];
+    
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      const cacheKey = this._generateCacheKey(img, projectContext);
+      
+      let hit = null;
+      if (!forceIgnoreCache) {
+        try {
+          const cachedStr = localStorage.getItem(cacheKey);
+          if (cachedStr) {
+            hit = JSON.parse(cachedStr);
+          }
+        } catch(e) {}
+      }
+      
+      if (hit && hit.tags && hit.comment) {
+        console.log(`[AI] Cache HIT for image: ${img.filename}`);
+        finalResults[i] = hit;
+      } else {
+        uncachedIndices.push(i);
+      }
+    }
+    
+    if (uncachedIndices.length === 0) {
+      onProgress(100, `Hoàn thành từ Local Cache...`);
+      return { results: finalResults, provider: 'Local Cache' };
+    }
+
+    // Step 2: Extract uncached images
+    const uncachedImages = uncachedIndices.map(idx => images[idx]);
+    usedProvider = 'Serverless API';
 
     // Prepare thumbnails if vision mode
     let thumbnails = [];
-    if (projectContext.visionMode && images.length <= 10) {
+    if (projectContext.visionMode && uncachedImages.length <= 10) {
       onProgress(5, 'Đang tạo thumbnails cho Vision AI...');
-      for (const img of images) {
+      for (const img of uncachedImages) {
         const thumb = await this.createThumbnail(img.dataURL, 256);
         thumbnails.push(thumb);
       }
@@ -334,58 +256,52 @@ RULES:
 
     // Split into batches
     const batches = [];
-    for (let i = 0; i < images.length; i += batchSize) {
+    for (let i = 0; i < uncachedImages.length; i += batchSize) {
       batches.push({
-        images: images.slice(i, i + batchSize),
+        images: uncachedImages.slice(i, i + batchSize),
         thumbnails: thumbnails.slice(i, i + batchSize),
-        startIdx: i
+        originalIndices: uncachedIndices.slice(i, i + batchSize)
       });
     }
 
-    let processed = 0;
-    let currentProvider = provider; // 'gemini', 'openrouter', or 'auto'
+    let processed = images.length - uncachedImages.length;
 
     for (const batch of batches) {
       const prompt = this.buildPrompt(batch.images, projectContext);
       let batchResults = null;
 
-      // Try providers in order
-      const tryOrder = this._getProviderOrder(currentProvider, geminiKey, openrouterKey);
-
-      for (const tryProvider of tryOrder) {
-        try {
-          if (tryProvider === 'gemini' && geminiKey) {
-            batchResults = await this.callGemini(
-              prompt, geminiKey,
-              projectContext.visionMode ? batch.thumbnails : []
-            );
-            usedProvider = 'Gemini';
-            break;
-          }
-          if (tryProvider === 'openrouter' && openrouterKey) {
-            batchResults = await this.callOpenRouter(
-              prompt, openrouterKey,
-              projectContext.visionMode ? batch.thumbnails : []
-            );
-            usedProvider = 'OpenRouter';
-            break;
-          }
-        } catch (err) {
-          console.warn(`[AI] ${tryProvider} failed for batch:`, err.message);
-          continue;
-        }
+      try {
+        batchResults = await this.callServerless(
+          prompt,
+          projectContext.visionMode ? batch.thumbnails : []
+        );
+      } catch (err) {
+        console.warn(`[AI] Serverless API failed for batch:`, err.message);
       }
 
       // Fallback to offline for this batch
       if (!batchResults) {
-        console.log('[AI] Using offline SmartTagGenerator for batch');
-        usedProvider = 'Offline';
+        console.log('[AI] Using offline SmartTagGenerator for batch due to failure');
+        usedProvider = usedProvider === 'Serverless API' ? 'Offline' : usedProvider;
         batchResults = batch.images.map(() => null);
       }
 
       // Normalize results
       const normalized = this._normalizeResults(batchResults, batch.images.length);
-      allResults.push(...normalized);
+      
+      // Merge results into final array and update cache
+      normalized.forEach((res, localIdx) => {
+        const globalIdx = batch.originalIndices[localIdx];
+        finalResults[globalIdx] = res;
+        
+        // Cache successful results
+        if (res && res.tags && res.comment) {
+           const cacheKey = this._generateCacheKey(images[globalIdx], projectContext);
+           try {
+             localStorage.setItem(cacheKey, JSON.stringify(res));
+           } catch(e) {}
+        }
+      });
 
       processed += batch.images.length;
       const pct = Math.round((processed / images.length) * 90) + 10;
@@ -397,7 +313,7 @@ RULES:
       }
     }
 
-    return { results: allResults, provider: usedProvider };
+    return { results: finalResults, provider: usedProvider };
   },
 
   /**
@@ -452,16 +368,11 @@ RULES:
   // ==================== INTERNAL HELPERS ====================
 
   /**
-   * Determine provider order based on config
+   * Internal Helper: Decode Provider order
+   * (Deprectated in Serverless architecture, but kept for structural purity)
    */
-  _getProviderOrder(preferred, geminiKey, openrouterKey) {
-    if (preferred === 'gemini') return ['gemini', 'openrouter'];
-    if (preferred === 'openrouter') return ['openrouter', 'gemini'];
-    // 'auto': try gemini first if key available, then openrouter
-    const order = [];
-    if (geminiKey) order.push('gemini');
-    if (openrouterKey) order.push('openrouter');
-    return order.length > 0 ? order : ['gemini'];
+  _getProviderOrder(preferred) {
+    return ['serverless'];
   },
 
   /**

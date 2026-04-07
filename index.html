@@ -61,27 +61,18 @@
         <span class="toggle-slider"></span>
       </label>
     </div>
-    <div class="setting-group" id="aiProviderGroup" style="display: none;">
-      <label>🔌 Provider:</label>
-      <select id="aiProvider" class="setting-select">
-        <option value="gemini">Gemini (Google)</option>
-        <option value="openrouter">OpenRouter</option>
-        <option value="auto">Auto (Fallback)</option>
-      </select>
-    </div>
-    <div class="setting-group" id="geminiKeyGroup" style="display: none;">
-      <label>🔑 Gemini:</label>
-      <input type="password" id="globalApiKey" placeholder="Google AI Studio Key">
-    </div>
-    <div class="setting-group" id="openrouterKeyGroup" style="display: none;">
-      <label>🔑 Router:</label>
-      <input type="password" id="openrouterApiKey" placeholder="OpenRouter Key">
-    </div>
     <div class="setting-group" id="visionToggleGroup" style="display: none;">
       <label>👁️ Vision:</label>
       <label class="toggle-switch">
         <input type="checkbox" id="visionModeToggle">
         <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="setting-group" id="forceCacheGroup" style="display: none;" title="Bỏ qua cache, buộc AI phân tích lại ảnh này từ đầu">
+      <label>⚡ Bỏ qua Cache:</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="forceCacheToggle">
+        <span class="toggle-slider" style="background-color: var(--danger-color);"></span>
       </label>
     </div>
     <div class="divider"></div>

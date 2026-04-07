@@ -513,17 +513,14 @@ const App = {
     document.getElementById('aiModeToggle').addEventListener('change', (e) => {
       this.state.globalSettings.aiMode = e.target.checked;
       const show = e.target.checked ? 'flex' : 'none';
-      document.getElementById('aiProviderGroup').style.display = show;
       document.getElementById('visionToggleGroup').style.display = show;
+      document.getElementById('forceCacheGroup').style.display = show;
       document.getElementById('projectContextBar').style.display = e.target.checked ? 'block' : 'none';
-      this._updateAIKeyVisibility();
     });
-
-    // AI provider selector
-    document.getElementById('aiProvider').addEventListener('change', (e) => {
-      this.state.globalSettings.aiProvider = e.target.value;
-      try { localStorage.setItem('geotag_ai_provider', e.target.value); } catch(ex) {}
-      this._updateAIKeyVisibility();
+    
+    // Force cache toggle
+    document.getElementById('forceCacheToggle').addEventListener('change', (e) => {
+      try { localStorage.setItem('geotag_force_cache', e.target.checked ? '1' : '0'); } catch(ex) {}
     });
 
     // Vision mode toggle
@@ -549,39 +546,17 @@ const App = {
       this.state.globalSettings.websiteUrl = e.target.value.trim();
     });
 
-    // Gemini API key
-    document.getElementById('globalApiKey').addEventListener('input', (e) => {
-      this.state.globalSettings.apiKey = e.target.value;
-      try { localStorage.setItem('geotag_api_key', e.target.value); } catch(ex) {}
-    });
 
-    // OpenRouter API key
-    document.getElementById('openrouterApiKey').addEventListener('input', (e) => {
-      this.state.globalSettings.openrouterKey = e.target.value;
-      try { localStorage.setItem('geotag_openrouter_key', e.target.value); } catch(ex) {}
-    });
-
-    // Restore all saved settings from localStorage
+    // Restore AI toggle settings from localStorage
     try {
-      const savedKey = localStorage.getItem('geotag_api_key');
-      const savedORKey = localStorage.getItem('geotag_openrouter_key');
-      const savedProvider = localStorage.getItem('geotag_ai_provider');
       const savedVision = localStorage.getItem('geotag_vision_mode');
-      if (savedKey) {
-        document.getElementById('globalApiKey').value = savedKey;
-        this.state.globalSettings.apiKey = savedKey;
-      }
-      if (savedORKey) {
-        document.getElementById('openrouterApiKey').value = savedORKey;
-        this.state.globalSettings.openrouterKey = savedORKey;
-      }
-      if (savedProvider) {
-        document.getElementById('aiProvider').value = savedProvider;
-        this.state.globalSettings.aiProvider = savedProvider;
-      }
+      const savedForce = localStorage.getItem('geotag_force_cache');
       if (savedVision === '1') {
         document.getElementById('visionModeToggle').checked = true;
         this.state.projectContext.visionMode = true;
+      }
+      if (savedForce === '1') {
+        document.getElementById('forceCacheToggle').checked = true;
       }
     } catch(ex) {}
 
@@ -627,17 +602,6 @@ const App = {
     });
   },
 
-  /**
-   * Show/hide API key fields based on selected provider
-   */
-  _updateAIKeyVisibility() {
-    const provider = this.state.globalSettings.aiProvider;
-    const aiOn = this.state.globalSettings.aiMode;
-    const showGemini = aiOn && (provider === 'gemini' || provider === 'auto');
-    const showOR = aiOn && (provider === 'openrouter' || provider === 'auto');
-    document.getElementById('geminiKeyGroup').style.display = showGemini ? 'flex' : 'none';
-    document.getElementById('openrouterKeyGroup').style.display = showOR ? 'flex' : 'none';
-  },
 
   /**
    * Apply author & copyright to all images
@@ -723,19 +687,15 @@ const App = {
     this.showProgress(5, 'Đang chuẩn bị...');
 
     const aiMode = this.state.globalSettings.aiMode;
-    const geminiKey = this.state.globalSettings.apiKey;
-    const openrouterKey = this.state.globalSettings.openrouterKey;
-    const hasAIKey = geminiKey || openrouterKey;
+    const forceIgnoreCache = document.getElementById('forceCacheToggle')?.checked || false;
 
     let usedProvider = 'Offline';
 
-    if (aiMode && hasAIKey) {
-      // ===== AI MODE: Use AIProvider with project context =====
+    if (aiMode) {
+      // ===== AI MODE: Use AIProvider with Serverless Backend =====
       try {
         const config = {
-          provider: this.state.globalSettings.aiProvider,
-          geminiKey: geminiKey,
-          openrouterKey: openrouterKey,
+          forceIgnoreCache,
           projectContext: { ...this.state.projectContext }
         };
 
@@ -751,7 +711,7 @@ const App = {
 
         console.log(`[AI] ✅ Processed ${results.length} images via ${provider}`);
       } catch (err) {
-        console.warn('[AI] All providers failed, falling back to offline:', err.message);
+        console.warn('[AI] Serverless failed, falling back to offline:', err.message);
         this.showProgress(60, 'AI thất bại, dùng offline...');
       }
     }
