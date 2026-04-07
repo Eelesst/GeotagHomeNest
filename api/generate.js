@@ -12,8 +12,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing prompt' });
   }
 
-  const geminiKey = process.env.GEMINI_API_KEY;
-  const openrouterKey = process.env.OPENROUTER_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.Gemini_API_KEY;
+  const openrouterKey = process.env.OPENROUTER_API_KEY || process.env.OpenRouter_API_KEY;
 
   if (!geminiKey && !openrouterKey) {
     return res.status(500).json({ 
