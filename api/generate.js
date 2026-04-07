@@ -2,7 +2,6 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -21,25 +20,27 @@ export default async function handler(req, res) {
     });
   }
 
-  // Danh sách Models ưu tiên — chỉ dùng các model đã xác nhận hoạt động
+  // Gemini dùng v1 (stable) - đây là lý do v1beta bị lỗi 404
   const tryQueue = [];
   if (geminiKey) {
-    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash',    key: geminiKey });
-    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash-8b', key: geminiKey });
-    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-pro',      key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash',    apiVersion: 'v1',     key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash-8b', apiVersion: 'v1',     key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-pro',      apiVersion: 'v1',     key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash',    apiVersion: 'v1beta', key: geminiKey });
   }
   if (openrouterKey) {
-    tryQueue.push({ provider: 'openrouter', model: 'meta-llama/llama-3.3-70b-instruct:free', key: openrouterKey });
-    tryQueue.push({ provider: 'openrouter', model: 'google/gemini-flash-1.5:free',            key: openrouterKey });
-    tryQueue.push({ provider: 'openrouter', model: 'mistralai/mistral-7b-instruct:free',      key: openrouterKey });
+    tryQueue.push({ provider: 'openrouter', model: 'deepseek/deepseek-chat-v3-0324:free',       key: openrouterKey });
+    tryQueue.push({ provider: 'openrouter', model: 'google/gemini-2.0-flash-thinking-exp:free', key: openrouterKey });
+    tryQueue.push({ provider: 'openrouter', model: 'qwen/qwen3-14b:free',                       key: openrouterKey });
+    tryQueue.push({ provider: 'openrouter', model: 'meta-llama/llama-3.3-70b-instruct:free',    key: openrouterKey });
   }
 
   let lastError = null;
 
   for (const item of tryQueue) {
-    const { provider, model, key } = item;
+    const { provider, model, apiVersion, key } = item;
     try {
-      console.log(`[API] Trying ${provider}/${model}...`);
+      console.log(`[API] Trying ${provider}/${model}${apiVersion ? ` (${apiVersion})` : ''}...`);
 
       let response;
 
@@ -51,18 +52,15 @@ export default async function handler(req, res) {
             if (base64) parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64 } });
           }
         }
+        const ver = apiVersion || 'v1';
         response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+          `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${key}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts }],
-              generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 4096,
-                responseMimeType: 'application/json'
-              }
+              generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
             })
           }
         );
@@ -98,11 +96,10 @@ export default async function handler(req, res) {
         console.warn(`[API] ${provider}/${model} failed: ${response.status} — ${msg.substring(0, 120)}`);
         lastError = new Error(`${model}: ${msg}`);
 
-        // Rate limit — backoff rồi thử model tiếp
         if (response.status === 429) {
-          await new Promise(r => setTimeout(r, 2000));
+          await new Promise(r => setTimeout(r, 1500));
         }
-        continue; // <-- LUÔN thử model tiếp, không throw
+        continue; // luôn thử model tiếp theo
       }
 
       const data = await response.json();
@@ -123,14 +120,12 @@ export default async function handler(req, res) {
       return res.status(200).json({ text, provider: `Server/${provider}` });
 
     } catch (err) {
-      // Network-level error (timeout, DNS, etc.) — tiếp tục sang model khác
       console.error(`[API] Network error with ${provider}/${model}:`, err.message);
       lastError = err;
       continue;
     }
   }
 
-  // Tất cả model đều thất bại
   const errMsg = lastError?.message || 'All AI models failed';
   console.error('[API] All models exhausted:', errMsg);
   return res.status(503).json({ error: errMsg });
