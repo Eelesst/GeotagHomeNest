@@ -13,7 +13,7 @@ Công cụ gắn GPS, metadata và sinh SEO tags cho hình ảnh — chạy 100%
 
 ## 🚀 Sử dụng
 
-1. Mở tool tại: [Link GitHub Pages]
+1. Mở tool tại: https://geotag-home-nest.vercel.app/
 2. Kéo thả ảnh vào tool
 3. Chọn vị trí GPS trên bản đồ → Áp dụng GPS
 4. Bấm 🤖 AI Tags để sinh tags + description
@@ -22,7 +22,7 @@ Công cụ gắn GPS, metadata và sinh SEO tags cho hình ảnh — chạy 100%
 ## 🔑 AI Mode (tùy chọn)
 
 Để sử dụng Gemini AI bổ sung tags:
-1. Lấy API key miễn phí tại [Google AI Studio](https://aistudio.google.com/apikey)
+1. Lấy API key miễn phí tại https://openrouter.ai/
 2. Bật toggle "AI Mode" trên tool
 3. Dán API key vào
 
