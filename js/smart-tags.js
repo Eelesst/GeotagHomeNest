@@ -476,8 +476,11 @@ const SmartTagGenerator = {
       // Comment: only fill if currently empty AND not yet AI-processed
       // If img.aiProcessed = true, the AI already wrote the comment (even if it was empty from AI,
       // we trust the offline template only when AI was never used for this image)
-      if (!img.metadata.comment && !img.aiProcessed && result.comment) {
-        img.metadata.comment = result.comment;
+      if (!img.aiProcessed && result.comment) {
+        // If it's completely empty OR if it matches the default auto-parsed string from filename
+        if (!img.metadata.comment || img.metadata.comment === parsed.comment) {
+          img.metadata.comment = result.comment;
+        }
       }
 
       // BUG FIX #1: Title & Subject — offline mode only fills if empty (never override)

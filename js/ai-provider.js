@@ -380,15 +380,7 @@ RULES:
       if (!batchResults) {
         console.log('[AI] Using offline SmartTagGenerator for batch');
         usedProvider = 'Offline';
-        batchResults = batch.images.map(img => {
-          const parsed = FilenameParser.parse(img.filename);
-          return {
-            tags: parsed.tags || [],
-            comment: '',
-            title: parsed.title || '',
-            subject: ''
-          };
-        });
+        batchResults = batch.images.map(() => null);
       }
 
       // Normalize results
@@ -417,6 +409,9 @@ RULES:
     results.forEach((result, i) => {
       if (i >= images.length) return;
       const img = images[i];
+      if (!result) return; // Skip if null (offline fallback marker)
+
+      let hasValidAiOutput = false;
 
       // Tags: ALWAYS merge (add AI tags to existing, no duplicates)
       if (result.tags && result.tags.length > 0) {
@@ -427,27 +422,30 @@ RULES:
           .map(t => t.trim())
           .filter(t => t && !existingLower.has(t.toLowerCase()));
         img.metadata.tags = [...existing, ...newTags].join('; ');
+        hasValidAiOutput = true;
       }
 
       // BUG FIX #1: Title & Subject — AI only FILLS if empty, never overrides user/filename values
-      // Reason: title and subject are set from filename by default; AI should not change them
       if (result.title && !img.metadata.title) {
         img.metadata.title = result.title;
+        hasValidAiOutput = true;
       }
 
       if (result.subject && !img.metadata.subject) {
         img.metadata.subject = result.subject;
+        hasValidAiOutput = true;
       }
 
       // Comment: AI ALWAYS overrides when it returns a non-empty comment.
-      // mergeResults() runs BEFORE SmartTagGenerator, so SmartTagGenerator will only
-      // fill images where AI returned nothing. This ensures ALL images get proper AI comments.
       if (result.comment) {
         img.metadata.comment = result.comment;
+        hasValidAiOutput = true;
       }
 
       // Mark as AI-processed so SmartTagGenerator skips comment for this image
-      img.aiProcessed = true;
+      if (hasValidAiOutput) {
+        img.aiProcessed = true;
+      }
     });
   },
 
@@ -530,18 +528,21 @@ RULES:
       arr = [];
     }
 
-    const normalized = arr.map(item => ({
-      tags: Array.isArray(item?.tags) ? item.tags.filter(t => typeof t === 'string' && t.trim()) : [],
-      comment: typeof item?.comment === 'string' ? item.comment.trim() : '',
-      title: typeof item?.title === 'string' ? item.title.trim() : '',
-      subject: typeof item?.subject === 'string' ? item.subject.trim() : ''
-    }));
+    const normalized = arr.map(item => {
+      if (!item) return null; // Preserve nulls
+      return {
+        tags: Array.isArray(item?.tags) ? item.tags.filter(t => typeof t === 'string' && t.trim()) : [],
+        comment: typeof item?.comment === 'string' ? item.comment.trim() : (typeof item?.description === 'string' ? item.description.trim() : ''),
+        title: typeof item?.title === 'string' ? item.title.trim() : '',
+        subject: typeof item?.subject === 'string' ? item.subject.trim() : ''
+      };
+    });
 
     // BUG FIX #4: If AI returned fewer items than expected, pad with empty slots
     // This prevents images 2, 3, 4 from getting no data at all
     while (normalized.length < expectedCount) {
       console.warn(`[AI] Padding: got ${normalized.length} results, expected ${expectedCount}`);
-      normalized.push({ tags: [], comment: '', title: '', subject: '' });
+      normalized.push(null);
     }
 
     return normalized.slice(0, expectedCount);
