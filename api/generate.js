@@ -20,13 +20,17 @@ export default async function handler(req, res) {
     });
   }
 
-  // Gemini dùng v1 (stable) - đây là lý do v1beta bị lỗi 404
+  // Queue covers cả dòng model cũ lẫn mới — tự động fallback
   const tryQueue = [];
   if (geminiKey) {
-    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash',    apiVersion: 'v1',     key: geminiKey });
-    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash-8b', apiVersion: 'v1',     key: geminiKey });
-    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-pro',      apiVersion: 'v1',     key: geminiKey });
-    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash',    apiVersion: 'v1beta', key: geminiKey });
+    // Dòng 2.0 (mới nhất cho tài khoản mới)
+    tryQueue.push({ provider: 'gemini', model: 'gemini-2.0-flash-lite',          apiVersion: 'v1',     key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-2.0-flash-lite-001',       apiVersion: 'v1',     key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-2.5-flash-preview-04-17',  apiVersion: 'v1beta', key: geminiKey });
+    // Dòng 1.5 (tài khoản cũ)
+    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash',               apiVersion: 'v1',     key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-flash-8b',            apiVersion: 'v1',     key: geminiKey });
+    tryQueue.push({ provider: 'gemini', model: 'gemini-1.5-pro',                 apiVersion: 'v1',     key: geminiKey });
   }
   if (openrouterKey) {
     tryQueue.push({ provider: 'openrouter', model: 'deepseek/deepseek-chat-v3-0324:free',       key: openrouterKey });
