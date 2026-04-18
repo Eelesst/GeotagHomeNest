@@ -258,16 +258,291 @@ RULES:
   },
 
   /**
+   * Call OpenRouter API directly from browser
+   * @param {string} prompt
+   * @param {Array<string>} imageThumbnails
+   * @param {string} apiKey - OpenRouter API key
+   * @returns {Promise<Object>} Parsed JSON response
+   */
+  async callDirectOpenRouter(prompt, imageThumbnails = [], apiKey) {
+    const models = [
+      'meta-llama/llama-3.3-70b-instruct:free',
+      'qwen/qwen3-8b:free',
+      'mistralai/mistral-7b-instruct:free'
+    ];
+
+    let lastError = 'Không rõ lỗi';
+
+    for (const model of models) {
+      try {
+        console.log(`[AI] OpenRouter direct: ${model}...`);
+
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': window.location.origin || 'https://geotag-home-nest.vercel.app',
+            'X-Title': 'HomeNest Geotag'
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 4096,
+            temperature: 0.7
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          let apiMsg = `HTTP ${response.status}`;
+          try { apiMsg = JSON.parse(errText).error?.message || apiMsg; } catch(_) {}
+          lastError = `[${model}] ${apiMsg}`;
+          console.warn(`[AI] OpenRouter ${model} failed (${response.status}): ${apiMsg}`);
+          if (response.status === 429) await this._sleep(1500);
+          continue;
+        }
+
+        const data = await response.json();
+        const text = data?.choices?.[0]?.message?.content;
+        if (!text) {
+          lastError = `[${model}] Response rỗng`;
+          continue;
+        }
+
+        console.log(`[AI] ✅ OpenRouter success: ${model}`);
+        return this._parseJSON(text);
+
+      } catch (err) {
+        lastError = `[${model}] ${err.message}`;
+        console.warn(`[AI] OpenRouter error ${model}:`, err.message);
+      }
+    }
+
+    throw new Error(lastError);
+  },
+
+  /**
+   * Call 9router local endpoint (OpenAI-compatible API with gemini/ model prefix)
+   * @param {string} prompt
+   * @param {Array<string>} imageThumbnails
+   * @param {string} apiKey - 9router API key (from Endpoint page)
+   * @param {string} baseUrl - 9router base URL (default: http://localhost:20128/v1)
+   * @returns {Promise<Object>} Parsed JSON response
+   */
+  async callNineRouter(prompt, imageThumbnails = [], apiKey, baseUrl = 'http://localhost:20128/v1') {
+    const models = [
+      'gemini/gemini-2.5-flash',
+      'gemini/gemini-2.0-flash',
+      'gemini/gemini-2.0-flash-lite'
+    ];
+
+    let lastError = 'Không rõ lỗi';
+    const endpoint = baseUrl.replace(/\/$/, '') + '/chat/completions';
+
+    for (const model of models) {
+      try {
+        console.log(`[AI] 9router: ${model} via ${endpoint}...`);
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 4096,
+            temperature: 0.7
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          let apiMsg = `HTTP ${response.status}`;
+          try { apiMsg = JSON.parse(errText).error?.message || apiMsg; } catch(_) {}
+          lastError = `[${model}] ${apiMsg}`;
+          console.warn(`[AI] 9router ${model} failed (${response.status}): ${apiMsg}`);
+          if (response.status === 429) await this._sleep(1500);
+          continue;
+        }
+
+        const data = await response.json();
+        const text = data?.choices?.[0]?.message?.content;
+        if (!text) {
+          lastError = `[${model}] Response rỗng`;
+          continue;
+        }
+
+        console.log(`[AI] ✅ 9router success: ${model}`);
+        return this._parseJSON(text);
+
+      } catch (err) {
+        lastError = `[${model}] ${err.message}`;
+        console.warn(`[AI] 9router error ${model}:`, err.message);
+      }
+    }
+
+    throw new Error(lastError);
+  },
+
+  /**
+   * Test a provider with a minimal request
+   * @param {string} providerName - 'gemini' | 'openrouter' | '9router'
+   * @param {string} apiKey
+   * @param {string} [baseUrl] - for 9router only
+   * @returns {Promise<{ok: boolean, model?: string, error?: string}>}
+   */
+  async testProvider(providerName, apiKey, baseUrl) {
+    if (providerName !== '9router' && !apiKey) return { ok: false, error: 'Chưa nhập API Key' };
+
+    try {
+      if (providerName === 'gemini') {
+        const testModels = [
+          { name: 'gemini-2.5-flash', ver: 'v1beta' },
+          { name: 'gemini-2.0-flash', ver: 'v1' }
+        ];
+        let lastErr = 'Không thể kết nối';
+
+        for (const { name, ver } of testModels) {
+          try {
+            const r = await fetch(
+              `https://generativelanguage.googleapis.com/${ver}/models/${name}:generateContent?key=${apiKey}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: 'Hi' }] }],
+                  generationConfig: { maxOutputTokens: 10 }
+                })
+              }
+            );
+            if (r.ok) return { ok: true, model: name };
+            const errText = await r.text();
+            try { lastErr = JSON.parse(errText).error?.message || `HTTP ${r.status}`; } catch(_) { lastErr = `HTTP ${r.status}`; }
+          } catch(_) { lastErr = 'Network error'; }
+        }
+        return { ok: false, error: lastErr };
+
+      } else if (providerName === 'openrouter') {
+        const model = 'meta-llama/llama-3.3-70b-instruct:free';
+        const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': window.location.origin || 'https://geotag-home-nest.vercel.app',
+            'X-Title': 'HomeNest Geotag'
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: 'Hi' }],
+            max_tokens: 10
+          })
+        });
+        if (r.ok) return { ok: true, model };
+        const errText = await r.text();
+        let errMsg = `HTTP ${r.status}`;
+        try { errMsg = JSON.parse(errText).error?.message || errMsg; } catch(_) {}
+        return { ok: false, error: errMsg };
+
+      } else if (providerName === '9router') {
+        const endpoint = (baseUrl || 'http://localhost:20128/v1').replace(/\/$/, '') + '/chat/completions';
+        const model = 'gemini/gemini-2.5-flash';
+        const headers = { 'Content-Type': 'application/json' };
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+        const r = await fetch(endpoint, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: 'Hi' }],
+            max_tokens: 10
+          })
+        });
+        if (r.ok) return { ok: true, model };
+        const errText = await r.text();
+        let errMsg = `HTTP ${r.status}`;
+        try { errMsg = JSON.parse(errText).error?.message || errMsg; } catch(_) {}
+        return { ok: false, error: errMsg };
+      }
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+    return { ok: false, error: 'Unknown provider' };
+  },
+
+  /**
+   * Call providers in preference order, returning first success
+   * @returns {Promise<{result: Object|null, provider: string|null, error: Error|null}>}
+   */
+  async _callWithFallback(prompt, thumbnails, preferred, geminiKey, openrouterKey, ninerouterKey, ninerouterBaseUrl) {
+    const order = [];
+
+    const add9router = () => {
+      if (ninerouterKey || ninerouterBaseUrl) {
+        order.push({ type: '9router', key: ninerouterKey, baseUrl: ninerouterBaseUrl, label: '9router' });
+      }
+    };
+    const addGemini = () => {
+      if (geminiKey) order.push({ type: 'gemini', key: geminiKey, label: 'Gemini Direct' });
+    };
+    const addOpenRouter = () => {
+      if (openrouterKey) order.push({ type: 'openrouter', key: openrouterKey, label: 'OpenRouter Direct' });
+    };
+
+    if (preferred === '9router') {
+      add9router(); addGemini(); addOpenRouter();
+    } else if (preferred === 'openrouter') {
+      addOpenRouter(); addGemini(); add9router();
+    } else if (preferred === 'gemini') {
+      addGemini(); add9router(); addOpenRouter();
+    } else {
+      // auto: 9router first (local, free), then Gemini, then OpenRouter
+      add9router(); addGemini(); addOpenRouter();
+    }
+
+    if (order.length === 0) {
+      return { result: null, provider: null, error: new Error('Chưa nhập API Key. Vào provider bar → nhập key.') };
+    }
+
+    let lastError;
+    for (const p of order) {
+      try {
+        let result;
+        if (p.type === 'gemini') {
+          result = await this.callDirectBrowser(prompt, thumbnails, p.key);
+        } else if (p.type === 'openrouter') {
+          result = await this.callDirectOpenRouter(prompt, thumbnails, p.key);
+        } else {
+          result = await this.callNineRouter(prompt, thumbnails, p.key, p.baseUrl);
+        }
+        return { result, provider: p.label, error: null };
+      } catch (err) {
+        lastError = err;
+        console.warn(`[AI] ${p.label} failed:`, err.message);
+      }
+    }
+    return { result: null, provider: null, error: lastError };
+  },
+
+  /**
    * Main entry point: process images with AI using fallback chain
    * Local Cache -> Serverless API -> Offline
-   * 
+   *
    * @param {Array} images - Image objects from app state
-   * @param {Object} config - { projectContext, forceIgnoreCache }
+   * @param {Object} config - { projectContext, forceIgnoreCache, apiKey, openrouterKey, preferredProvider }
    * @param {Function} onProgress - Progress callback (percentage, message)
    * @returns {Promise<{results: Array, provider: string}>}
    */
   async processImages(images, config, onProgress) {
-    const { projectContext, forceIgnoreCache, apiKey } = config;
+    const {
+      projectContext, forceIgnoreCache,
+      apiKey = '', openrouterKey = '',
+      ninerouterKey = '', ninerouterBaseUrl = 'http://localhost:20128/v1',
+      preferredProvider = 'auto'
+    } = config;
     const batchSize = 5;
     const finalResults = new Array(images.length).fill(null);
     let usedProvider = 'Local Cache';
@@ -342,19 +617,8 @@ RULES:
       let batchResults = null;
       const visionThumbs = projectContext.visionMode ? batch.thumbnails : [];
 
-      if (isLocalhost && apiKey && !isFileProtocol) {
-        // Localhost HTTP server + API key: skip serverless, call Gemini directly
-        console.log('[AI] Localhost detected — going straight to direct Gemini API...');
-        try {
-          batchResults = await this.callDirectBrowser(prompt, visionThumbs, apiKey);
-          usedProvider = 'Gemini Direct';
-        } catch (err) {
-          lastApiError = err;
-          console.warn('[AI] Direct API failed:', err.message);
-        }
-
-      } else if (isFileProtocol && apiKey) {
-        // file:// protocol — cannot make external fetch() calls due to browser security
+      if (isFileProtocol) {
+        // file:// protocol — browser blocks all external fetch() calls
         lastApiError = new Error(
           'Mở tool qua HTTP server để dùng AI Mode.\n' +
           'Cách nhanh nhất: dùng VS Code Live Server hoặc chạy:\n' +
@@ -362,22 +626,34 @@ RULES:
         );
         console.warn('[AI] file:// protocol blocks external API calls');
 
+      } else if (isLocalhost) {
+        // Localhost: skip serverless, use direct API keys with provider preference
+        console.log(`[AI] Localhost — preferred: ${preferredProvider}`);
+        const { result, provider, error } = await this._callWithFallback(
+          prompt, visionThumbs, preferredProvider, apiKey, openrouterKey, ninerouterKey, ninerouterBaseUrl
+        );
+        if (result) {
+          batchResults = result;
+          usedProvider = provider;
+        } else {
+          lastApiError = error;
+        }
+
       } else {
-        // Production (Vercel): try serverless first, fallback to direct if key available
+        // Production (Vercel): try serverless first, then fallback to direct API keys
         try {
           batchResults = await this.callServerless(prompt, visionThumbs);
+          usedProvider = 'Serverless';
         } catch (serverlessErr) {
           console.warn('[AI] Serverless failed:', serverlessErr.message);
-          if (apiKey) {
-            try {
-              batchResults = await this.callDirectBrowser(prompt, visionThumbs, apiKey);
-              usedProvider = 'Gemini Direct';
-            } catch (err) {
-              lastApiError = err;
-              console.warn('[AI] Direct fallback also failed:', err.message);
-            }
+          const { result, provider, error } = await this._callWithFallback(
+            prompt, visionThumbs, preferredProvider, apiKey, openrouterKey, ninerouterKey, ninerouterBaseUrl
+          );
+          if (result) {
+            batchResults = result;
+            usedProvider = provider;
           } else {
-            lastApiError = serverlessErr;
+            lastApiError = error || serverlessErr;
           }
         }
       }

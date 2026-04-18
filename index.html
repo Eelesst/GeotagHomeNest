@@ -85,10 +85,6 @@
         <span class="toggle-slider"></span>
       </label>
     </div>
-    <div class="setting-group" id="apiKeyGroup" style="display: none;">
-      <label>🔑 API Key:</label>
-      <input type="password" id="geminiApiKey" placeholder="Google AI Studio Key" style="width: 180px; font-size: 11px;" title="Lấy tại aistudio.google.com/apikey — dùng khi chạy localhost">
-    </div>
     <div class="setting-group" id="visionToggleGroup" style="display: none;">
       <label>👁️ Vision:</label>
       <label class="toggle-switch">
@@ -145,6 +141,74 @@
         </select>
         <button class="btn-ctx btn-ctx-danger" id="btnDeleteProject" title="Xóa project đã chọn">🗑️</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ==================== PROVIDER MANAGEMENT BAR ==================== -->
+  <div class="provider-bar" id="providerBar" style="display: none;">
+    <div class="provider-bar-inner">
+
+      <!-- Gemini -->
+      <div class="provider-card" id="geminiCard">
+        <div class="provider-card-header">
+          <span class="provider-dot" id="geminiDot" title="Chưa test"></span>
+          <span class="provider-name">♊ Gemini</span>
+          <span class="provider-last-used" id="geminiLastModel"></span>
+        </div>
+        <div class="provider-card-body">
+          <input type="password" id="geminiApiKey" class="provider-key-input"
+            placeholder="AIzaSy..." title="Lấy tại aistudio.google.com/apikey">
+          <button class="btn-test-provider" id="btnTestGemini">Test</button>
+        </div>
+      </div>
+
+      <!-- OpenRouter -->
+      <div class="provider-card" id="openrouterCard">
+        <div class="provider-card-header">
+          <span class="provider-dot" id="openrouterDot" title="Chưa test"></span>
+          <span class="provider-name">🔀 OpenRouter</span>
+          <span class="provider-last-used" id="openrouterLastModel"></span>
+        </div>
+        <div class="provider-card-body">
+          <input type="password" id="openrouterApiKey" class="provider-key-input"
+            placeholder="sk-or-v1-..." title="Lấy tại openrouter.ai/keys">
+          <button class="btn-test-provider" id="btnTestOpenRouter">Test</button>
+        </div>
+      </div>
+
+      <!-- 9router -->
+      <div class="provider-card provider-9router-card" id="ninerouterCard">
+        <div class="provider-card-header">
+          <span class="provider-dot" id="ninerouterDot" title="Chưa test"></span>
+          <span class="provider-name">🔀 9router (Local)</span>
+          <span class="provider-last-used" id="ninerouterLastModel"></span>
+        </div>
+        <div class="provider-card-body">
+          <input type="text" id="ninerouterBaseUrl" class="provider-key-input provider-url-input"
+            placeholder="http://localhost:20128/v1" value="http://localhost:20128/v1">
+        </div>
+        <div class="provider-card-body">
+          <input type="password" id="ninerouterApiKey" class="provider-key-input"
+            placeholder="sk-..." title="API key từ 9router Endpoint page">
+          <button class="btn-test-provider" id="btnTestNinerouter">Test</button>
+        </div>
+      </div>
+
+      <!-- Provider Priority -->
+      <div class="provider-card provider-mode-card">
+        <div class="provider-card-header">
+          <span class="provider-name">🔧 Ưu tiên gọi</span>
+        </div>
+        <div class="provider-card-body">
+          <select id="aiProviderSelect" class="setting-select provider-select">
+            <option value="auto">🔄 Auto (9router → Gemini → OpenRouter)</option>
+            <option value="9router">🔀 9router only</option>
+            <option value="gemini">♊ Gemini only</option>
+            <option value="openrouter">🔀 OpenRouter only</option>
+          </select>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -290,9 +354,9 @@
   <script src="js/filename-parser.js?v=4"></script>
   <script src="js/smart-tags.js?v=4"></script>
   <script src="js/metadata.js?v=4"></script>
-  <script src="js/ai-provider.js?v=5"></script>
+  <script src="js/ai-provider.js?v=7"></script>
   <script src="js/geotag.js?v=4"></script>
   <script src="js/download.js?v=4"></script>
-  <script src="js/app.js?v=4"></script>
+  <script src="js/app.js?v=6"></script>
 </body>
 </html>

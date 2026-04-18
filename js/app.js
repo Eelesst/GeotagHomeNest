@@ -20,10 +20,12 @@ const App = {
       copyright: '',
       websiteUrl: '',
       autoRating: true,
-      apiKey: '',       // Gemini API key
-      openrouterKey: '', // OpenRouter API key
+      apiKey: '',           // Gemini API key
+      openrouterKey: '',    // OpenRouter API key
+      ninerouterKey: '',    // 9router API key
+      ninerouterBaseUrl: 'http://localhost:20128/v1',
       aiMode: false,
-      aiProvider: 'gemini', // 'gemini', 'openrouter', 'auto'
+      aiProvider: 'auto',  // 'auto', '9router', 'gemini', 'openrouter'
       optimize: false,
       optimizeMaxWidth: 1920,
       optimizeQuality: 0.85
@@ -515,11 +517,11 @@ const App = {
     // AI mode toggle — show/hide all AI-related settings
     document.getElementById('aiModeToggle').addEventListener('change', (e) => {
       this.state.globalSettings.aiMode = e.target.checked;
-      const show = e.target.checked ? 'flex' : 'none';
-      document.getElementById('apiKeyGroup').style.display = show;
-      document.getElementById('visionToggleGroup').style.display = show;
-      document.getElementById('forceCacheGroup').style.display = show;
+      const showFlex = e.target.checked ? 'flex' : 'none';
+      document.getElementById('visionToggleGroup').style.display = showFlex;
+      document.getElementById('forceCacheGroup').style.display = showFlex;
       document.getElementById('projectContextBar').style.display = e.target.checked ? 'block' : 'none';
+      document.getElementById('providerBar').style.display = e.target.checked ? 'block' : 'none';
       try { localStorage.setItem('geotag_ai_mode', e.target.checked ? '1' : '0'); } catch(ex) {}
     });
 
@@ -532,7 +534,100 @@ const App = {
       this.state.globalSettings.apiKey = key;
       try { localStorage.setItem('geotag_gemini_key', key); } catch(ex) {}
     });
-    
+
+    // OpenRouter API Key input
+    document.getElementById('openrouterApiKey').addEventListener('input', (e) => {
+      this.state.globalSettings.openrouterKey = e.target.value.trim();
+    });
+    document.getElementById('openrouterApiKey').addEventListener('change', (e) => {
+      const key = e.target.value.trim();
+      this.state.globalSettings.openrouterKey = key;
+      try { localStorage.setItem('geotag_openrouter_key', key); } catch(ex) {}
+    });
+
+    // Provider priority selector
+    document.getElementById('aiProviderSelect').addEventListener('change', (e) => {
+      this.state.globalSettings.aiProvider = e.target.value;
+      try { localStorage.setItem('geotag_ai_provider', e.target.value); } catch(ex) {}
+    });
+
+    // Test Gemini button
+    document.getElementById('btnTestGemini').addEventListener('click', async () => {
+      const btn = document.getElementById('btnTestGemini');
+      btn.disabled = true;
+      btn.textContent = '⏳';
+      this._setProviderDot('gemini', 'testing');
+      const result = await AIProvider.testProvider('gemini', this.state.globalSettings.apiKey);
+      if (result.ok) {
+        this._setProviderDot('gemini', 'ok', result.model);
+        this.showToast(`✅ Gemini OK: ${result.model}`, 'success');
+      } else {
+        this._setProviderDot('gemini', 'error');
+        this.showToast(`❌ Gemini lỗi: ${result.error}`, 'error', 7000);
+      }
+      btn.disabled = false;
+      btn.textContent = 'Test';
+    });
+
+    // Test OpenRouter button
+    document.getElementById('btnTestOpenRouter').addEventListener('click', async () => {
+      const btn = document.getElementById('btnTestOpenRouter');
+      btn.disabled = true;
+      btn.textContent = '⏳';
+      this._setProviderDot('openrouter', 'testing');
+      const result = await AIProvider.testProvider('openrouter', this.state.globalSettings.openrouterKey);
+      if (result.ok) {
+        this._setProviderDot('openrouter', 'ok', result.model);
+        this.showToast(`✅ OpenRouter OK: ${result.model}`, 'success');
+      } else {
+        this._setProviderDot('openrouter', 'error');
+        this.showToast(`❌ OpenRouter lỗi: ${result.error}`, 'error', 7000);
+      }
+      btn.disabled = false;
+      btn.textContent = 'Test';
+    });
+
+    // 9router Base URL input
+    document.getElementById('ninerouterBaseUrl').addEventListener('input', (e) => {
+      this.state.globalSettings.ninerouterBaseUrl = e.target.value.trim();
+    });
+    document.getElementById('ninerouterBaseUrl').addEventListener('change', (e) => {
+      const url = e.target.value.trim();
+      this.state.globalSettings.ninerouterBaseUrl = url;
+      try { localStorage.setItem('geotag_9router_url', url); } catch(ex) {}
+    });
+
+    // 9router API Key input
+    document.getElementById('ninerouterApiKey').addEventListener('input', (e) => {
+      this.state.globalSettings.ninerouterKey = e.target.value.trim();
+    });
+    document.getElementById('ninerouterApiKey').addEventListener('change', (e) => {
+      const key = e.target.value.trim();
+      this.state.globalSettings.ninerouterKey = key;
+      try { localStorage.setItem('geotag_9router_key', key); } catch(ex) {}
+    });
+
+    // Test 9router button
+    document.getElementById('btnTestNinerouter').addEventListener('click', async () => {
+      const btn = document.getElementById('btnTestNinerouter');
+      btn.disabled = true;
+      btn.textContent = '⏳';
+      this._setProviderDot('ninerouter', 'testing');
+      const result = await AIProvider.testProvider('9router',
+        this.state.globalSettings.ninerouterKey,
+        this.state.globalSettings.ninerouterBaseUrl
+      );
+      if (result.ok) {
+        this._setProviderDot('ninerouter', 'ok', result.model);
+        this.showToast(`✅ 9router OK: ${result.model}`, 'success');
+      } else {
+        this._setProviderDot('ninerouter', 'error');
+        this.showToast(`❌ 9router lỗi: ${result.error}`, 'error', 7000);
+      }
+      btn.disabled = false;
+      btn.textContent = 'Test';
+    });
+
     // Force cache toggle
     document.getElementById('forceCacheToggle').addEventListener('change', (e) => {
       try { localStorage.setItem('geotag_force_cache', e.target.checked ? '1' : '0'); } catch(ex) {}
@@ -587,15 +682,35 @@ const App = {
       if (savedAiMode === '1') {
         document.getElementById('aiModeToggle').checked = true;
         this.state.globalSettings.aiMode = true;
-        document.getElementById('apiKeyGroup').style.display = 'flex';
         document.getElementById('visionToggleGroup').style.display = 'flex';
         document.getElementById('forceCacheGroup').style.display = 'flex';
         document.getElementById('projectContextBar').style.display = 'block';
+        document.getElementById('providerBar').style.display = 'block';
       }
       const savedGeminiKey = localStorage.getItem('geotag_gemini_key');
       if (savedGeminiKey) {
         document.getElementById('geminiApiKey').value = savedGeminiKey;
         this.state.globalSettings.apiKey = savedGeminiKey;
+      }
+      const savedOpenrouterKey = localStorage.getItem('geotag_openrouter_key');
+      if (savedOpenrouterKey) {
+        document.getElementById('openrouterApiKey').value = savedOpenrouterKey;
+        this.state.globalSettings.openrouterKey = savedOpenrouterKey;
+      }
+      const savedAiProvider = localStorage.getItem('geotag_ai_provider');
+      if (savedAiProvider) {
+        document.getElementById('aiProviderSelect').value = savedAiProvider;
+        this.state.globalSettings.aiProvider = savedAiProvider;
+      }
+      const saved9rKey = localStorage.getItem('geotag_9router_key');
+      if (saved9rKey) {
+        document.getElementById('ninerouterApiKey').value = saved9rKey;
+        this.state.globalSettings.ninerouterKey = saved9rKey;
+      }
+      const saved9rUrl = localStorage.getItem('geotag_9router_url');
+      if (saved9rUrl) {
+        document.getElementById('ninerouterBaseUrl').value = saved9rUrl;
+        this.state.globalSettings.ninerouterBaseUrl = saved9rUrl;
       }
       if (savedVision === '1') {
         document.getElementById('visionModeToggle').checked = true;
@@ -763,7 +878,11 @@ const App = {
         const config = {
           forceIgnoreCache,
           projectContext: { ...this.state.projectContext },
-          apiKey: this.state.globalSettings.apiKey || ''
+          apiKey: this.state.globalSettings.apiKey || '',
+          openrouterKey: this.state.globalSettings.openrouterKey || '',
+          ninerouterKey: this.state.globalSettings.ninerouterKey || '',
+          ninerouterBaseUrl: this.state.globalSettings.ninerouterBaseUrl || 'http://localhost:20128/v1',
+          preferredProvider: this.state.globalSettings.aiProvider || 'auto'
         };
 
         const { results, provider, error: apiError } = await AIProvider.processImages(
@@ -1057,6 +1176,16 @@ const App = {
   },
 
   // ==================== HELPERS ====================
+  _setProviderDot(provider, state, modelLabel) {
+    const dot = document.getElementById(`${provider}Dot`);
+    const lastUsed = document.getElementById(`${provider}LastModel`);
+    if (!dot) return;
+    dot.className = `provider-dot${state ? ' ' + state : ''}`;
+    const titles = { ok: 'Hoạt động tốt', error: 'Lỗi — kiểm tra API key', testing: 'Đang test...', '': 'Chưa test' };
+    dot.title = titles[state] || 'Chưa test';
+    if (lastUsed && modelLabel) lastUsed.textContent = modelLabel;
+  },
+
   getImageById(id) {
     return this.state.images.find(img => img.id === id);
   },
