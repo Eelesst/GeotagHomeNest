@@ -53,6 +53,30 @@
         <span class="toggle-slider"></span>
       </label>
     </div>
+    <div class="setting-group">
+      <label>🗜️ Tối ưu ảnh:</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="optimizeToggle">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="setting-group" id="optimizeSettingsGroup" style="display: none;">
+      <label>Max W:</label>
+      <select id="optimizeMaxWidth" class="setting-select">
+        <option value="800">800px</option>
+        <option value="1200">1200px</option>
+        <option value="1920" selected>1920px</option>
+        <option value="2560">2560px</option>
+      </select>
+      <label style="margin-left: 8px;">Chất lượng:</label>
+      <select id="optimizeQuality" class="setting-select">
+        <option value="0.7">70%</option>
+        <option value="0.8">80%</option>
+        <option value="0.85" selected>85%</option>
+        <option value="0.9">90%</option>
+        <option value="0.95">95%</option>
+      </select>
+    </div>
     <div class="divider"></div>
     <div class="setting-group api-toggle">
       <label>🤖 AI Mode:</label>
@@ -258,6 +282,7 @@
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 
   <!-- App Modules (v3 = cache bust) -->
+  <script src="js/image-optimizer.js?v=1"></script>
   <script src="js/filename-parser.js?v=4"></script>
   <script src="js/smart-tags.js?v=4"></script>
   <script src="js/metadata.js?v=4"></script>

@@ -23,7 +23,10 @@ const App = {
       apiKey: '',       // Gemini API key
       openrouterKey: '', // OpenRouter API key
       aiMode: false,
-      aiProvider: 'gemini' // 'gemini', 'openrouter', 'auto'
+      aiProvider: 'gemini', // 'gemini', 'openrouter', 'auto'
+      optimize: false,
+      optimizeMaxWidth: 1920,
+      optimizeQuality: 0.85
     },
     projectContext: {
       industry: '',
@@ -536,6 +539,23 @@ const App = {
       try { localStorage.setItem('geotag_auto_rating', e.target.checked ? '1' : '0'); } catch(ex) {}
     });
 
+    // Optimize toggle
+    document.getElementById('optimizeToggle').addEventListener('change', (e) => {
+      this.state.globalSettings.optimize = e.target.checked;
+      document.getElementById('optimizeSettingsGroup').style.display = e.target.checked ? 'flex' : 'none';
+      try { localStorage.setItem('geotag_optimize', e.target.checked ? '1' : '0'); } catch(ex) {}
+    });
+
+    document.getElementById('optimizeMaxWidth').addEventListener('change', (e) => {
+      this.state.globalSettings.optimizeMaxWidth = parseInt(e.target.value, 10);
+      try { localStorage.setItem('geotag_optimize_maxwidth', e.target.value); } catch(ex) {}
+    });
+
+    document.getElementById('optimizeQuality').addEventListener('change', (e) => {
+      this.state.globalSettings.optimizeQuality = parseFloat(e.target.value);
+      try { localStorage.setItem('geotag_optimize_quality', e.target.value); } catch(ex) {}
+    });
+
     // Global author/copyright/website inputs
     document.getElementById('globalAuthor').addEventListener('input', (e) => {
       this.state.globalSettings.author = e.target.value;
@@ -591,6 +611,26 @@ const App = {
         const isOn = savedRating !== '0';
         document.getElementById('autoRatingToggle').checked = isOn;
         this.state.globalSettings.autoRating = isOn;
+      }
+    } catch(ex) {}
+
+    // Restore optimize settings from localStorage
+    try {
+      const savedOptimize = localStorage.getItem('geotag_optimize');
+      const savedMaxWidth = localStorage.getItem('geotag_optimize_maxwidth');
+      const savedQuality = localStorage.getItem('geotag_optimize_quality');
+      if (savedOptimize === '1') {
+        document.getElementById('optimizeToggle').checked = true;
+        this.state.globalSettings.optimize = true;
+        document.getElementById('optimizeSettingsGroup').style.display = 'flex';
+      }
+      if (savedMaxWidth) {
+        document.getElementById('optimizeMaxWidth').value = savedMaxWidth;
+        this.state.globalSettings.optimizeMaxWidth = parseInt(savedMaxWidth, 10);
+      }
+      if (savedQuality) {
+        document.getElementById('optimizeQuality').value = savedQuality;
+        this.state.globalSettings.optimizeQuality = parseFloat(savedQuality);
       }
     } catch(ex) {}
 
@@ -949,14 +989,21 @@ const App = {
     btn.innerHTML = '<span class="spinner"></span> Đang xử lý...';
 
     try {
+      const optimizeSettings = this.state.globalSettings.optimize ? {
+        maxWidth: this.state.globalSettings.optimizeMaxWidth,
+        quality: this.state.globalSettings.optimizeQuality
+      } : null;
+
       await Downloader.downloadAll(
         this.state.images,
         (percent, message) => {
           this.showProgress(percent, message);
-        }
+        },
+        optimizeSettings
       );
 
-      this.showToast(`📥 Đã tải ${this.state.images.length} ảnh!`, 'success');
+      const optimizeNote = optimizeSettings ? ` (đã tối ưu ${optimizeSettings.maxWidth}px)` : '';
+      this.showToast(`📥 Đã tải ${this.state.images.length} ảnh!${optimizeNote}`, 'success');
     } catch (err) {
       console.error('Download error:', err);
       this.showToast(`Lỗi tải xuống: ${err.message}`, 'error');
