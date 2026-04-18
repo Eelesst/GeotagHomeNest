@@ -516,10 +516,21 @@ const App = {
     document.getElementById('aiModeToggle').addEventListener('change', (e) => {
       this.state.globalSettings.aiMode = e.target.checked;
       const show = e.target.checked ? 'flex' : 'none';
+      document.getElementById('apiKeyGroup').style.display = show;
       document.getElementById('visionToggleGroup').style.display = show;
       document.getElementById('forceCacheGroup').style.display = show;
       document.getElementById('projectContextBar').style.display = e.target.checked ? 'block' : 'none';
       try { localStorage.setItem('geotag_ai_mode', e.target.checked ? '1' : '0'); } catch(ex) {}
+    });
+
+    // Gemini API Key input
+    document.getElementById('geminiApiKey').addEventListener('input', (e) => {
+      this.state.globalSettings.apiKey = e.target.value.trim();
+    });
+    document.getElementById('geminiApiKey').addEventListener('change', (e) => {
+      const key = e.target.value.trim();
+      this.state.globalSettings.apiKey = key;
+      try { localStorage.setItem('geotag_gemini_key', key); } catch(ex) {}
     });
     
     // Force cache toggle
@@ -576,9 +587,15 @@ const App = {
       if (savedAiMode === '1') {
         document.getElementById('aiModeToggle').checked = true;
         this.state.globalSettings.aiMode = true;
+        document.getElementById('apiKeyGroup').style.display = 'flex';
         document.getElementById('visionToggleGroup').style.display = 'flex';
         document.getElementById('forceCacheGroup').style.display = 'flex';
         document.getElementById('projectContextBar').style.display = 'block';
+      }
+      const savedGeminiKey = localStorage.getItem('geotag_gemini_key');
+      if (savedGeminiKey) {
+        document.getElementById('geminiApiKey').value = savedGeminiKey;
+        this.state.globalSettings.apiKey = savedGeminiKey;
       }
       if (savedVision === '1') {
         document.getElementById('visionModeToggle').checked = true;
@@ -745,10 +762,11 @@ const App = {
       try {
         const config = {
           forceIgnoreCache,
-          projectContext: { ...this.state.projectContext }
+          projectContext: { ...this.state.projectContext },
+          apiKey: this.state.globalSettings.apiKey || ''
         };
 
-        const { results, provider } = await AIProvider.processImages(
+        const { results, provider, error: apiError } = await AIProvider.processImages(
           this.state.images,
           config,
           (pct, msg) => this.showProgress(pct, msg)
@@ -757,6 +775,11 @@ const App = {
         // Merge AI results into image metadata
         AIProvider.mergeResults(this.state.images, results);
         usedProvider = provider;
+
+        // Show actual error if AI fell back to offline
+        if (apiError && provider === 'Offline') {
+          this.showToast(`⚠️ AI lỗi: ${apiError.message}`, 'warning', 9000);
+        }
 
         console.log(`[AI] ✅ Processed ${results.length} images via ${provider}`);
       } catch (err) {
