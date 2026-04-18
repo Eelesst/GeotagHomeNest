@@ -98,12 +98,13 @@ const Downloader = {
   },
 
   /**
-   * Process all images: write metadata → package ZIP → download
+   * Process all images: [optimize] → write metadata → package ZIP → download
    * @param {Array} images - Array of image objects from App.state.images
    * @param {Function} onProgress - Progress callback(percent: 0-100, message: string)
+   * @param {Object|null} optimizeSettings - { maxWidth, quality } or null to skip
    * @returns {Promise<void>}
    */
-  async downloadAll(images, onProgress) {
+  async downloadAll(images, onProgress, optimizeSettings = null) {
     if (!images || images.length === 0) {
       throw new Error('Không có ảnh nào để tải xuống');
     }
@@ -120,9 +121,13 @@ const Downloader = {
 
     for (const img of images) {
       try {
-        // Write EXIF metadata onto the original image (preserving existing metadata)
-        // writeExif loads existing EXIF first, then only adds/updates our fields
-        const processedDataURL = MetadataManager.writeExif(img.dataURL, img.metadata);
+        // Optionally resize/compress before writing EXIF
+        const sourceDataURL = optimizeSettings
+          ? await ImageOptimizer.optimize(img.dataURL, optimizeSettings)
+          : img.dataURL;
+
+        // Write EXIF metadata onto the (possibly optimized) image
+        const processedDataURL = MetadataManager.writeExif(sourceDataURL, img.metadata);
 
         // Extract base64 data (remove prefix)
         const base64Data = processedDataURL.split(',')[1];
