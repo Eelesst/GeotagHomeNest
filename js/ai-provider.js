@@ -164,34 +164,97 @@ RULES:
    * @returns {Promise<Object>} Parsed JSON response
    */
   async callServerless(prompt, imageThumbnails = []) {
-    try {
-      console.log(`[AI] Calling Vercel Serverless Endpoint...`);
+    console.log(`[AI] Calling Vercel Serverless Endpoint...`);
 
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          prompt,
-          imageThumbnails
-        })
-      });
+    const response = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, imageThumbnails })
+    });
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || `Server API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      if (!data.text) throw new Error('Empty response from Serverless Endpoint');
-
-      console.log(`[AI] ✅ Serverless ${data.provider || 'Success'}`);
-      return this._parseJSON(data.text);
-
-    } catch (err) {
-      throw err;
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `Server API Error: ${response.status}`);
     }
+
+    const data = await response.json();
+    if (!data.text) throw new Error('Empty response from Serverless Endpoint');
+
+    console.log(`[AI] ✅ Serverless ${data.provider || 'Success'}`);
+    return this._parseJSON(data.text);
+  },
+
+  /**
+   * Call Gemini API directly from browser (dùng khi chạy localhost)
+   * @param {string} prompt
+   * @param {Array<string>} imageThumbnails
+   * @param {string} apiKey - Google AI Studio API key
+   * @returns {Promise<Object>} Parsed JSON response
+   */
+  async callDirectBrowser(prompt, imageThumbnails = [], apiKey) {
+    const models = [
+      { name: 'gemini-2.5-flash',      ver: 'v1beta' },
+      { name: 'gemini-2.0-flash',      ver: 'v1'     },
+      { name: 'gemini-2.0-flash-lite', ver: 'v1'     }
+    ];
+
+    let lastError = 'Không rõ lỗi';
+
+    for (const { name, ver } of models) {
+      try {
+        console.log(`[AI] Direct browser call: ${name} (${ver})...`);
+
+        const parts = [{ text: prompt }];
+        for (const thumb of imageThumbnails) {
+          if (thumb) {
+            const base64 = thumb.split(',')[1];
+            if (base64) parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64 } });
+          }
+        }
+
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/${ver}/models/${name}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts }],
+              generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+            })
+          }
+        );
+
+        if (!response.ok) {
+          const errText = await response.text();
+          let apiMsg = `HTTP ${response.status}`;
+          try {
+            const errObj = JSON.parse(errText);
+            apiMsg = errObj.error?.message || apiMsg;
+          } catch(_) {}
+          lastError = `[${name}] ${apiMsg}`;
+          console.warn(`[AI] ${name} failed (${response.status}): ${apiMsg}`);
+          if (response.status === 429) await this._sleep(1500);
+          continue;
+        }
+
+        const data = await response.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) {
+          lastError = `[${name}] Response rỗng`;
+          console.warn(`[AI] ${name} returned empty text`);
+          continue;
+        }
+
+        console.log(`[AI] ✅ Direct browser call success: ${name}`);
+        return this._parseJSON(text);
+
+      } catch (err) {
+        lastError = `[${name}] ${err.message}`;
+        console.warn(`[AI] Network/CORS error ${name}:`, err.message);
+      }
+    }
+
+    throw new Error(lastError);
   },
 
   /**
@@ -204,7 +267,7 @@ RULES:
    * @returns {Promise<{results: Array, provider: string}>}
    */
   async processImages(images, config, onProgress) {
-    const { projectContext, forceIgnoreCache } = config;
+    const { projectContext, forceIgnoreCache, apiKey } = config;
     const batchSize = 5;
     const finalResults = new Array(images.length).fill(null);
     let usedProvider = 'Local Cache';
@@ -265,24 +328,64 @@ RULES:
     }
 
     let processed = images.length - uncachedImages.length;
+    let lastApiError = null;
+
+    // Detect file:// protocol — browser blocks all external fetch() calls
+    const isFileProtocol = window.location.protocol === 'file:';
+    // Detect localhost — can call external APIs but serverless endpoint doesn't exist
+    const isLocalhost = window.location.hostname === 'localhost' ||
+                        window.location.hostname === '127.0.0.1' ||
+                        isFileProtocol;
 
     for (const batch of batches) {
       const prompt = this.buildPrompt(batch.images, projectContext);
       let batchResults = null;
+      const visionThumbs = projectContext.visionMode ? batch.thumbnails : [];
 
-      try {
-        batchResults = await this.callServerless(
-          prompt,
-          projectContext.visionMode ? batch.thumbnails : []
+      if (isLocalhost && apiKey && !isFileProtocol) {
+        // Localhost HTTP server + API key: skip serverless, call Gemini directly
+        console.log('[AI] Localhost detected — going straight to direct Gemini API...');
+        try {
+          batchResults = await this.callDirectBrowser(prompt, visionThumbs, apiKey);
+          usedProvider = 'Gemini Direct';
+        } catch (err) {
+          lastApiError = err;
+          console.warn('[AI] Direct API failed:', err.message);
+        }
+
+      } else if (isFileProtocol && apiKey) {
+        // file:// protocol — cannot make external fetch() calls due to browser security
+        lastApiError = new Error(
+          'Mở tool qua HTTP server để dùng AI Mode.\n' +
+          'Cách nhanh nhất: dùng VS Code Live Server hoặc chạy:\n' +
+          'npx serve . -p 3000'
         );
-      } catch (err) {
-        console.warn(`[AI] Serverless API failed for batch:`, err.message);
+        console.warn('[AI] file:// protocol blocks external API calls');
+
+      } else {
+        // Production (Vercel): try serverless first, fallback to direct if key available
+        try {
+          batchResults = await this.callServerless(prompt, visionThumbs);
+        } catch (serverlessErr) {
+          console.warn('[AI] Serverless failed:', serverlessErr.message);
+          if (apiKey) {
+            try {
+              batchResults = await this.callDirectBrowser(prompt, visionThumbs, apiKey);
+              usedProvider = 'Gemini Direct';
+            } catch (err) {
+              lastApiError = err;
+              console.warn('[AI] Direct fallback also failed:', err.message);
+            }
+          } else {
+            lastApiError = serverlessErr;
+          }
+        }
       }
 
       // Fallback to offline for this batch
       if (!batchResults) {
-        console.log('[AI] Using offline SmartTagGenerator for batch due to failure');
-        usedProvider = usedProvider === 'Serverless API' ? 'Offline' : usedProvider;
+        usedProvider = (usedProvider === 'Serverless API' || usedProvider === 'Local Cache')
+          ? 'Offline' : usedProvider;
         batchResults = batch.images.map(() => null);
       }
 
@@ -313,7 +416,7 @@ RULES:
       }
     }
 
-    return { results: finalResults, provider: usedProvider };
+    return { results: finalResults, provider: usedProvider, error: lastApiError };
   },
 
   /**
